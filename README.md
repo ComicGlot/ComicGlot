@@ -1,0 +1,1 @@
+# ComicGlot: Intelligent Hieroglyphic Text Segmentation and Stylized Translation for Multimedia Comics

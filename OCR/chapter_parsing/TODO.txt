@@ -1,0 +1,25 @@
+# CURRENT TASKS
+✅ Order of file parsing by lexics. 8 -> 9 -> 10, not 148 -> 149 -> 15 -> 16
+✅ Order of bubbles seems to be inverted:
+    2025-01-11 01:58:48,129 - INFO - {'image': '04.png', 'box_number': 1, 'class_name': 'speech_bubble', 'confidence': 0.9698, 'text': '으어?!'}
+    2025-01-11 01:58:48,129 - INFO - {'image': '04.png', 'box_number': 2, 'class_name': 'sfx_sound', 'confidence': 0.9498, 'text': ''}
+    2025-01-11 01:58:48,129 - INFO - {'image': '04.png', 'box_number': 3, 'class_name': 'sfx_sound', 'confidence': 0.944, 'text': '게임'}
+    2025-01-11 01:58:48,129 - INFO - {'image': '04.png', 'box_number': 4, 'class_name': 'system_bubble', 'confidence': 0.9431, 'text': "[성좌, '악마 같은 불의 심판자' 가 당신의 화신을 돌볼 것을 종용합니다.]"}
+[ ] Try using paragraph mode in easyocr_reader.detect. Can fix system bubble \n splits, as oposed to single-line text
+[ ] Check the output of current OCR
+[ ] Check conf and iou params for YOLO model
+[ ] Create diff workflows for different classes. E.a. preprocess and use of submodel for sfx, ignore for title-panel etc.
+[ ] Change workflow: Process by block (prediction -> detection -> recognition for chapter batch). Look for gpu optimisation, try multitreading
+[ ] Add confidence for detection and recognition. Only predict one is shown
+
+# QUALITY OF LIFE CHANGES
+[ ] Reformat project tree
+[ ] Lexicality dataset. Check parsed text to match some rules / be part of dictionary
+[ ] Another system of detection for sfx_sounds
+[ ] Formalize the structure of processor. Add processing steps for robustness
+
+# PROJECT STEPS
+[ ] Context aware translator
+
+
+✅❎
