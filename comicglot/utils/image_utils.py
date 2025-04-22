@@ -215,12 +215,6 @@ def find_split_points(
     y = min_height
     
     while y < height - min_height:
-        #window_start = y
-        #window_end = min(y + carving_step, height)
-
-        # best_y = None
-        # best_score = -1
-        
         candidate_y = y
         homogeneity = calculate_color_homogeneity(image, candidate_y, width)
 
@@ -229,17 +223,6 @@ def find_split_points(
             y += min_height
         else:
             y += carving_step
-
-        # if homogeneity > best_score:
-        #     best_score = homogeneity
-        #     best_y = candidate_y
-
-        # for candidate_y in range(window_start, window_end):
-        #     homogeneity = calculate_color_homogeneity(image, candidate_y, width)
-            
-        #     if homogeneity > best_score:
-        #         best_score = homogeneity
-        #         best_y = candidate_y
         
     return split_points
 

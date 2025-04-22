@@ -12,6 +12,7 @@ saves/*
 /ko-trocr-cc100/
 
 tests/
+training/detection/bubble_detection/object_detection.ipynb
 training/recognition/synthtiger_gen/*
 training/recognition/ko_corpus/*
 training/recognition/splitted_corpus/*
