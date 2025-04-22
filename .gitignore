@@ -27,7 +27,8 @@ training/recognition/tokenizer_training/custom_trocr_tokenizer/*
 data/output/*
 data/chapters/*
 
-models/.EasyOCR/*
+models/.EasyOCR/model/*
+models/CRAFT/*
 models/CRAFT_pytorch/*
 models/DETR-RESNET-50/*
 models/efficientdet_d4/*
