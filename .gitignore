@@ -1,26 +1,34 @@
 .env
+/.venv
+/__pycache__
 /*.pt
 *.ttf
 
-datasets/*/
-roboflow/*
-runs/
+training/detection/datasets/*
+training/detection/lightning_logs/*
+training/detection/roboflow/*
+training/detection/runs/*
 saves/*
 /ko-trocr-cc100/
-lightning_logs/*
 
-OCR/tests/
-OCR/OCR_training/synthtiger_gen/*
-OCR/OCR_training/ko_corpus/*
-OCR/OCR_training/splitted_corpus/*
-OCR/OCR_training/transformer_training/trocr-finetuned/*
-OCR/OCR_training/transformer_training/ko-trocr-cc100/*
+tests/
+training/recognition/synthtiger_gen/*
+training/recognition/ko_corpus/*
+training/recognition/splitted_corpus/*
+training/recognition/transformer_training/trocr-finetuned/*
+training/recognition/transformer_training/ko-trocr-cg2m/*
+training/recognition/transformer_training/ko-trocr-cg2m-saves/*
 
-OCR/OCR_training/tokenizer_training/ko-trocr-cc100
-OCR/OCR_training/tokenizer_training/ko_trocr_cc100_tokenizer
+training/recognition/tokenizer_training/ko-trocr-cc100
+training/recognition/tokenizer_training/ko_trocr_cc100_tokenizer
+training/recognition/tokenizer_training/trocr-small-korean
+training/recognition/tokenizer_training/custom_trocr_tokenizer/*
 
-OCR/chapter_parsing/data/output/*
+data/output/*
+data/chapters/*
+
+models/.EasyOCR/*
+models/CRAFT_pytorch/*
 models/DETR-RESNET-50/*
+models/efficientdet_d4/*
 models/YOLO/*
-
-CRAFT_pytorch/*
