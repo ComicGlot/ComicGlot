@@ -13,6 +13,7 @@ saves/*
 
 tests/
 training/detection/bubble_detection/object_detection.ipynb
+training/detection/benchmark/*
 training/recognition/synthtiger_gen/*
 training/recognition/ko_corpus/*
 training/recognition/splitted_corpus/*
@@ -33,4 +34,5 @@ models/CRAFT/*
 models/CRAFT_pytorch/*
 models/DETR-RESNET-50/*
 models/efficientdet_d4/*
+models/KoTrOCR/*
 models/YOLO/*

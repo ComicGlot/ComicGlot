@@ -115,7 +115,7 @@ class OCRProcessor:
         
         elif self.recognition_model == 'easyocr':
             # EasyOCR already initialized in detector if we're using it
-            if self.detection_model != 'easyocr':
+            if self.detection_model != 'craft':
                 try:
                     from easyocr import Reader
                     self.logger.info(f"Initializing EasyOCR recognizer for languages: {self.language}")
@@ -152,8 +152,7 @@ class OCRProcessor:
             boxes = [(x_min, y_min, x_max, y_max) for (x_min, x_max, y_min, y_max) in horizontal_list[0]]
             
             if paragraph_mode and len(boxes) > 1:
-                # Group text lines into paragraphs using EasyOCR's grouping logic
-                # This is a simplified version - full implementation would use get_paragraph
+                # Group text lines into paragraphs
                 from comicglot.utils.text_utils import group_text_lines
                 boxes = group_text_lines(boxes)
             
@@ -227,26 +226,21 @@ class OCRProcessor:
                 # Process with TrOCR
                 pixel_values = self.trocr_processor(cropped_rgb, return_tensors="pt").pixel_values.to(self.device)
                 
-                # Configure generation
-                gen_config = None
-                if hasattr(self.trocr_model, 'generation_config'):
-                    gen_config = self.trocr_model.generation_config
-                else:
-                    gen_config = {
-                        "max_length": 128,
-                        "early_stopping": True,
-                        "num_beams": 4,
-                        "no_repeat_ngram_size": 3,
-                    }
-                
                 # Generate text
-                if isinstance(gen_config, dict):
-                    generated_ids = self.trocr_model.generate(pixel_values, **gen_config)
-                else:
-                    generated_ids = self.trocr_model.generate(pixel_values, generation_config=gen_config)
+                gen_config = {
+                    "max_length": 128,
+                    "num_beams": 4,
+                    "do_sample": False
+                }
+                
+                generated_ids = self.trocr_model.generate(pixel_values, **gen_config)
                 
                 # Decode text
                 generated_text = self.trocr_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+                results.append(generated_text)
+                
+            except Exception as e:
+                self.logger.warning(f"Error processing region {box}: {str(e)}")
                 results.append("")
                 
         return results
@@ -298,20 +292,18 @@ class OCRProcessor:
     def perform_detection_and_recognition(
         self,
         image: Union[str, np.ndarray],
-        use_trocr: bool = True,
-        detection: bool = True,
         min_block_size: int = 20,
-        paragraph_mode: bool = False
+        paragraph_mode: bool = False,
+        detection: bool = True
     ) -> List[Tuple[Tuple[int, int, int, int], str]]:
         """
         Detect and recognize text regions in an image.
         
         Args:
             image: Input image as numpy array or path to image file
-            use_trocr: Whether to use TrOCR for recognition (fallback to EasyOCR if False)
-            detection: Whether to perform text line detection (if False, treats the whole image as one text block)
             min_block_size: Minimum size of text boxes to be considered
             paragraph_mode: Whether to group lines into paragraphs
+            detection: Whether to perform text line detection (if False, treats the whole image as one text block)
             
         Returns:
             List of tuples, each containing (bounding_box, recognized_text)
@@ -332,28 +324,8 @@ class OCRProcessor:
             height, width = image.shape[:2]
             boxes = [(0, 0, width, height)]
         
-        # Set recognition model based on parameter
-        original_recognition_model = self.recognition_model
-        if use_trocr:
-            self.recognition_model = 'trocr'
-        else:
-            self.recognition_model = 'easyocr'
-        
         # Perform recognition
-        try:
-            texts = self.recognize_text(image, boxes)
-        except Exception as e:
-            self.logger.warning(f"Recognition failed with {self.recognition_model}: {e}. Trying fallback.")
-            # Fallback to the other method
-            self.recognition_model = 'easyocr' if self.recognition_model == 'trocr' else 'trocr'
-            try:
-                texts = self.recognize_text(image, boxes)
-            except Exception as e2:
-                self.logger.error(f"Fallback recognition also failed: {e2}")
-                texts = [""] * len(boxes)
-        finally:
-            # Restore original setting
-            self.recognition_model = original_recognition_model
+        texts = self.recognize_text(image, boxes)
         
         # Combine boxes and texts
         return list(zip(boxes, texts))
@@ -404,7 +376,7 @@ class OCRProcessor:
         # Additional class-specific settings
         recognition_settings = {
             'system_bubble': {'paragraph_mode': True},
-            'sfx_sound': {'use_trocr': False},  # EasyOCR might be better for SFX
+            'sfx_sound': {'recognition_model': 'easyocr'},  # EasyOCR might be better for SFX
             'title_panel': {'min_block_size': 30},  # Larger min size for titles
         }
         
@@ -493,8 +465,37 @@ class OCRProcessor:
                 block_result['error'] = str(e)
                 results.append(block_result)
         
-        return resultsappend(generated_text)
-                
-            except Exception as e:
-                self.logger.warning(f"Error processing region {box}: {str(e)}")
-                results.
+        return results
+
+
+if __name__ == "__main__":
+    # Simple test code for the detector
+    from dotenv import load_dotenv
+    
+    # Load environment variables
+    load_dotenv()
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    
+    # Get paths from environment
+    trocr_model_path = os.path.abspath(os.getenv("TROCR_MODEL_PATH", "./models/TrOCR/tuned"))
+    input_bubble = os.path.abspath(os.getenv("INPUT_BUBBLE", "./data/bubbles/test.jpg"))
+    languages = os.getenv("LANGUAGE", "ko,en").split(',')
+    
+    # Create OCR processor
+    processor = OCRProcessor(
+        language=languages,
+        custom_model_path=trocr_model_path
+    )
+    
+    # Process a single image
+    results = processor.perform_detection_and_recognition(input_bubble)
+    
+    # Display results
+    print(f"Detected {len(results)} text regions:")
+    for i, (box, text) in enumerate(results):
+        print(f"  Region {i+1}: {box}, Text: {text}")

@@ -30,10 +30,10 @@ cer_metric = load("cer")
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 os.environ["FLASH_ATTENTION"] = "1"
 
-DATA_PATH = os.path.abspath(os.getenv("DATA_PATH", "../synthtiger_gen/results"))
-GT_FILE = os.path.join(DATA_PATH, "gt_shuffled_2.txt") #"gt_1.txt"
-#GT_TRAIN_FILE = os.path.join(DATA_PATH, "gt_train.txt")
-#GT_TEST_FILE = os.path.join(DATA_PATH, "gt_test.txt")
+SYNTH_OCR_DATA_PATH = os.path.abspath(os.getenv("SYNTH_OCR_DATA_PATH", "../synthtiger_gen/results"))
+GT_FILE = os.path.join(SYNTH_OCR_DATA_PATH, "gt_shuffled_2.txt") #"gt_1.txt"
+#GT_TRAIN_FILE = os.path.join(SYNTH_OCR_DATA_PATH, "gt_train.txt")
+#GT_TEST_FILE = os.path.join(SYNTH_OCR_DATA_PATH, "gt_test.txt")
 
 if not os.path.exists(GT_FILE):
     print(f"❌ ERROR: GT_FILE not found at {GT_FILE}")

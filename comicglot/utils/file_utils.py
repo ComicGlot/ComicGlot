@@ -21,7 +21,6 @@ def load_image(image_path: str) -> Optional[np.ndarray]:
     """
     try:
         if image_path.startswith(('http://', 'https://')):
-            # Load from URL
             response = urlopen(image_path)
             image_data = response.read()
             

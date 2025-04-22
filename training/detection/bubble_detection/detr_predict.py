@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # Load environment variables from .env file
 load_dotenv()
 
-MODEL_PATH = os.path.abspath('./detr-resnet-50-bubbles-10ep')
+MODEL_PATH = os.getenv("DETR_MODEL_PATH", "facebook/detr-resnet-50")
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 INPUT_IMAGE = os.path.abspath(os.getenv("INPUT_IMAGE", "./data/frames/test.jpg"))

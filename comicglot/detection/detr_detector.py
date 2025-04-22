@@ -9,7 +9,11 @@ import os
 import torch
 import numpy as np
 import logging
-from typing import List, Tuple, Optional, Dict, Any, Union
+from typing import List, Tuple, Dict, Any, Union
+import sys
+
+# Suppress TensorFlow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 0=all, 1=info, 2=warning, 3=error
 
 try:
     from transformers import DetrImageProcessor, DetrForObjectDetection
@@ -35,18 +39,22 @@ class DETRDetector:
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         
-        if os.path.exists(model_path) and not model_path.startswith(("http://", "https://")):
-            self.logger.info(f"Loading DETR model from local path: {model_path}")
-        else:
-            self.logger.info(f"Loading DETR model: {model_path}")
-        
         # Check if CUDA is available
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.logger.info(f"Using device: {self.device}")
         
-        # Load processor and model
+        # Load processor and model separately
         try:
-            self.processor = DetrImageProcessor.from_pretrained(model_path)
+            # Always load the processor from the base model
+            self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50", revision="no_timm")
+            self.logger.info("DETR processor loaded successfully")
+            
+            # Load the model from specified path (custom or base)
+            if os.path.exists(model_path) and not model_path.startswith(("http://", "https://")):
+                self.logger.info(f"Loading DETR model from local path: {model_path}")
+            else:
+                self.logger.info(f"Loading DETR model: {model_path}")
+                
             self.model = DetrForObjectDetection.from_pretrained(model_path).to(self.device)
             self.logger.info("DETR model loaded successfully")
             
@@ -87,18 +95,16 @@ class DETRDetector:
         if image is None:
             self.logger.error(f"Failed to load image: {image_path}")
             raise ValueError(f"Failed to load image: {image_path}")
-            
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # Process image for DETR
-        inputs = self.processor(images=image_rgb, return_tensors="pt").to(self.device)
+        inputs = self.processor(images=image, return_tensors="pt").to(self.device)
         
         # Run inference
         with torch.no_grad():
             outputs = self.model(**inputs)
         
         # Post-process outputs
-        target_sizes = torch.tensor([image.shape[:2]]).to(self.device)
+        target_sizes = torch.tensor([image.shape[:2]], dtype=torch.float32).to(self.device)
         results = self.processor.post_process_object_detection(
             outputs, target_sizes=target_sizes, threshold=threshold
         )[0]
@@ -119,38 +125,62 @@ class DETRDetector:
         self.logger.info(f"Detected {len(predictions)} text blocks")
         return predictions
     
-    def visualize(
+    def process_image(
         self,
         image_path: str,
-        detections: List[Dict[str, Any]]
-    ) -> np.ndarray:
+        threshold: float = 0.5,
+        return_visualization: bool = False
+    ) -> List[Dict[str, Any]]:
         """
-        Visualize detected text blocks on an image.
+        Process an image to detect text blocks.
         
         Args:
             image_path: Path to the image file
-            detections: List of detected blocks as dictionaries
+            threshold: Confidence threshold for detections
+            return_visualization: Unused parameter (kept for API compatibility)
             
         Returns:
-            Visualization image with bounding boxes
+            List of detected blocks as dictionaries
         """
-        try:
-            from comicglot.utils.visualization import draw_boxes_with_labels
-            import cv2
-            
-            # Load image
-            image = cv2.imread(image_path)
-            
-            # Draw bounding boxes
-            boxes = [np.array(r["box"]) for r in detections]
-            classes = [r["class_name"] for r in detections]
-            confidences = [r["confidence"] for r in detections]
-            ids = [r["id"] for r in detections]
-            
-            visualization = draw_boxes_with_labels(image, boxes, classes, confidences, ids)
-            return visualization
-            
-        except ImportError:
-            self.logger.warning("Visualization utilities not available, returning original image")
-            import cv2
-            return cv2.imread(image_path)
+        # Detect text blocks
+        predictions = self.detect(image_path, threshold)
+        
+        # Convert to structured output
+        results = []
+        for i, (box, class_name, confidence) in enumerate(predictions):
+            results.append({
+                "id": i,
+                "box": box.tolist(),
+                "class_name": class_name,
+                "confidence": float(confidence)
+            })
+        
+        return results
+
+
+if __name__ == "__main__":
+    # Simple test code for the detector
+    import cv2
+    from dotenv import load_dotenv
+    
+    # Load environment variables
+    load_dotenv()
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    
+    # Get paths from environment if available
+    model_path = os.getenv("DETR_MODEL_PATH", "facebook/detr-resnet-50")
+    input_image = os.path.abspath(os.getenv("INPUT_IMAGE", "./data/frames/test.jpg"))
+    
+    # Create detector and run detection
+    detector = DETRDetector(model_path)
+    results = detector.process_image(input_image)
+    
+    # Display results
+    print(f"Detected {len(results)} text blocks:")
+    for r in results:
+        print(f"  ID: {r['id']}, Class: {r['class_name']}, Box: {r['box']}, Confidence: {r['confidence']:.4f}")

@@ -8,7 +8,7 @@ using the YOLO object detection model.
 import os
 import numpy as np
 import logging
-from typing import List, Tuple, Optional, Dict, Any, Union
+from typing import List, Tuple, Dict, Any, Union
 
 try:
     from ultralytics import YOLO
@@ -84,117 +84,66 @@ class YOLODetector:
                 predictions.append((box, cls_name, confidences[i]))
         
         self.logger.info(f"Detected {len(predictions)} text blocks")
-        
         return predictions
     
-    def visualize(
-        self,
-        image_path: str,
-        detections: List[Dict[str, Any]]
-    ) -> np.ndarray:
-        """
-        Visualize detected text blocks on an image.
-        
-        Args:
-            image_path: Path to the image file
-            detections: List of detected blocks as dictionaries
-            
-        Returns:
-            Visualization image with bounding boxes
-        """
-        try:
-            from comicglot.utils.visualization import draw_boxes_with_labels
-            from comicglot.utils.file_utils import load_image
-            
-            # Load image
-            image = load_image(image_path)
-            
-            # Draw bounding boxes
-            boxes = [np.array(r["box"]) for r in detections]
-            classes = [r["class_name"] for r in detections]
-            confidences = [r["confidence"] for r in detections]
-            ids = [r["id"] for r in detections]
-            
-            visualization = draw_boxes_with_labels(image, boxes, classes, confidences, ids)
-            return visualization
-            
-        except ImportError:
-            self.logger.warning("Visualization utilities not available, returning original image")
-            import cv2
-            return cv2.imread(image_path)
-
     def process_image(
         self,
         image_path: str,
         conf: float = 0.5,
         iou: float = 0.7,
         return_visualization: bool = False
-    ) -> Tuple[List[Dict[str, Any]], Optional[np.ndarray]]:
+    ) -> List[Dict[str, Any]]:
         """
-        Process an image to detect and rank text blocks, with optional visualization.
+        Process an image to detect text blocks.
         
         Args:
             image_path: Path to the image file
             conf: Confidence threshold for detections
             iou: Intersection over Union threshold for NMS
-            return_visualization: Whether to return a visualization image
+            return_visualization: Unused parameter (kept for API compatibility)
             
         Returns:
-            Tuple containing:
-            - List of detected blocks as dictionaries
-            - Visualization image (if return_visualization=True) or None
+            List of detected blocks as dictionaries
         """
-        import cv2  # Import here to avoid dependency for basic usage
-        
         # Detect text blocks
-        ranked_predictions, separator_lines = self.detect(image_path, conf, iou)
+        predictions = self.detect(image_path, conf, iou)
         
         # Convert to structured output
         results = []
-        for i, ((box, class_name, confidence), separator) in enumerate(zip(ranked_predictions, separator_lines)):
+        for i, (box, class_name, confidence) in enumerate(predictions):
             results.append({
                 "id": i,
                 "box": box.tolist(),
                 "class_name": class_name,
-                "confidence": float(confidence),
-                "separator": separator.tolist() if separator is not None else None
+                "confidence": float(confidence)
             })
         
-        # Create visualization if requested
-        visualization = None
-        if return_visualization:
-            try:
-                from comicglot.utils.visualization import draw_boxes_with_labels, visualize_separator_lines
-                from comicglot.utils.file_utils import load_image
-                from comicglot.utils.data_types import TextBlock
-                
-                # Load image
-                image = load_image(image_path)
-                
-                # Draw bounding boxes
-                boxes = [np.array(r["box"]) for r in results]
-                classes = [r["class_name"] for r in results]
-                confidences = [r["confidence"] for r in results]
-                ids = [r["id"] for r in results]
-                
-                visualization = draw_boxes_with_labels(image, boxes, classes, confidences, ids)
-                
-                # Draw separator lines
-                text_blocks = [
-                    TextBlock(box=np.array(r["box"]), class_name=r["class_name"], 
-                              confidence=r["confidence"], id=r["id"])
-                    for r in results
-                ]
-                sep_lines_list = []
-                for r in results:
-                    if r["separator"] is not None:
-                        sep_lines_list.append([np.array(r["separator"])])
-                    else:
-                        sep_lines_list.append([])
-                
-                visualization = visualize_separator_lines(visualization, text_blocks, sep_lines_list)
-                
-            except ImportError:
-                self.logger.warning("Visualization utilities not available, skipping visualization")
-        
-        return results, visualization
+        return results
+
+
+if __name__ == "__main__":
+    # Simple test code for the detector
+    import cv2
+    from dotenv import load_dotenv
+    
+    # Load environment variables
+    load_dotenv()
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
+    
+    # Get paths from environment if available
+    model_path = os.path.abspath(os.getenv("YOLO_MODEL_PATH", "./models/YOLO/best.pt"))
+    input_image = os.path.abspath(os.getenv("INPUT_IMAGE", "./data/frames/test.jpg"))
+    
+    # Create detector and run detection
+    detector = YOLODetector(model_path)
+    results = detector.process_image(input_image)
+    
+    # Display results
+    print(f"Detected {len(results)} text blocks:")
+    for r in results:
+        print(f"  ID: {r['id']}, Class: {r['class_name']}, Box: {r['box']}, Confidence: {r['confidence']:.4f}")

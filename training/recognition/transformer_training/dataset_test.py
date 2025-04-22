@@ -3,8 +3,8 @@ import csv
 from datasets import load_dataset
 
 # Define dataset paths
-DATA_PATH = os.path.abspath(os.getenv("DATA_PATH", "../synthtiger_gen/results"))
-GT_FILE = os.path.join(DATA_PATH, "gt_1.txt")
+SYNTH_OCR_DATA_PATH = os.path.abspath(os.getenv("SYNTH_OCR_DATA_PATH", "../synthtiger_gen/results"))
+GT_FILE = os.path.join(SYNTH_OCR_DATA_PATH, "gt_1.txt")
 
 # Load dataset in streaming mode
 dataset = load_dataset(
