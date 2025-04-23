@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 from typing import List, Tuple, Optional, Union, Dict, Any
-from data_types import TextBlock
+from comicglot.utils.data_types import TextBlock
 
 def boxes_overlap(box1: np.ndarray, box2: np.ndarray) -> bool:
     """

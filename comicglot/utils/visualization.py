@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional, Union
 import logging
-from data_types import TextBlock
+from comicglot.utils.data_types import TextBlock
 
 def draw_bounding_box(
     image: np.ndarray, 

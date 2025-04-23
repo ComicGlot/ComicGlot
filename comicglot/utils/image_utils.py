@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict, Optional, Union
 import logging
 
-from file_utils import load_image
+from comicglot.utils.file_utils import load_image
 
 def resize_image(image: np.ndarray, width: Optional[int] = None, height: Optional[int] = None, 
                  preserve_aspect_ratio: bool = True) -> np.ndarray:
