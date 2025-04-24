@@ -527,14 +527,14 @@ if __name__ == "__main__":
 #         traceback.print_exc()
 #         return 1
 
-# def main():
-#     """Entry point function that determines how to run the script."""
-#     # Check if we're running with command-line arguments
-#     if len(sys.argv) > 1:
-#         return run_with_args()
-#     else:
-#         # No command line args, use hard-coded values
-#         return run_direct()
+def main():
+    """Entry point function that determines how to run the script."""
+    # Check if we're running with command-line arguments
+    if len(sys.argv) > 1:
+        return run_with_args()
+    else:
+        # No command line args, use hard-coded values
+        return run_direct()
 
-# if __name__ == "__main__":
-#     sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())

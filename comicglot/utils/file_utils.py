@@ -68,7 +68,7 @@ def save_image(image: np.ndarray, output_path: str) -> bool:
         logger.error(f"Error saving image to {output_path}: {str(e)}")
         return False
 
-def get_next_run_folder(base_output_folder: str) -> str:
+def get_next_run_folder(base_output_folder: str, tag: str,) -> str:
     """
     Find the smallest available "run{number}" folder in the output directory.
     
@@ -80,7 +80,7 @@ def get_next_run_folder(base_output_folder: str) -> str:
     """
     run_number = 1
     while True:
-        run_folder = os.path.join(base_output_folder, f"run{run_number}")
+        run_folder = os.path.join(base_output_folder, f"{tag}_run{run_number}")
         if not os.path.exists(run_folder):
             os.makedirs(run_folder)
             return run_folder

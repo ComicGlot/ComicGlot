@@ -1,11 +1,9 @@
 import os
-# set the following environment variable to true and then import tokenizer modules
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 from transformers import AutoTokenizer
 from pathlib import Path
 
-# Path to your large Korean text corpus
 #corpus_file = "E:/ko.txt"
 corpus_file = "E:/Projects/Python/Manhua_Scanner/OCR/OCR_training/ko_corpus/full_corpus_nltk.txt"
 
@@ -16,7 +14,6 @@ corpus_file = "E:/Projects/Python/Manhua_Scanner/OCR/OCR_training/ko_corpus/full
 #             if start <= i < end:
 #                 yield line.strip()
 
-# # Train the tokenizer on a chunk
 # def train_on_chunk(start, end, output_dir):
 #     print(f"Processing lines {start} to {end}")
 #     tokenizer = AutoTokenizer.from_pretrained("team-lucid/trocr-small-korean")
@@ -26,7 +23,6 @@ corpus_file = "E:/Projects/Python/Manhua_Scanner/OCR/OCR_training/ko_corpus/full
 #     )
 #     tokenizer.save_pretrained(f"{output_dir}/chunk_{start}_{end}")
 
-# # Keep track of processed chunks
 # state_file = Path("training_state.txt")
 # if state_file.exists():
 #     with state_file.open("r") as f:
@@ -38,31 +34,25 @@ corpus_file = "E:/Projects/Python/Manhua_Scanner/OCR/OCR_training/ko_corpus/full
 # num_lines = sum(1 for _ in open(corpus_file, "r", encoding="utf-8"))
 # total_chunks = (num_lines + chunk_size - 1) // chunk_size
 
-# # Process only unprocessed chunks
 # for chunk_start in range(last_processed, total_chunks * chunk_size, chunk_size):
 #     chunk_end = min(chunk_start + chunk_size, num_lines)
 #     print(f"Processing lines {chunk_start} to {chunk_end}")
 
 #     train_on_chunk(chunk_start, chunk_end, "./custom_trocr_tokenizer")
 
-#     # Save progress
 #     with state_file.open("w") as f:
 #         f.write(str(chunk_start))
 # ------------------------------------------------------
 
-# Generator to read corpus line by line
 def read_corpus(filepath):
     with open(filepath, encoding="utf-8") as f:
         for line in f:
             yield line.strip()
 
-# Load the original tokenizer
 original_tokenizer = AutoTokenizer.from_pretrained("team-lucid/trocr-small-korean")
 
-# Train a new tokenizer on the corpus
 new_tokenizer = original_tokenizer.train_new_from_iterator(
     read_corpus(corpus_file), vocab_size=52000
 )
 
-# Save the new tokenizer
 new_tokenizer.save_pretrained("./ko_trocr_nltkC_tokenizer")

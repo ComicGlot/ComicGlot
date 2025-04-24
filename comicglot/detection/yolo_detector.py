@@ -60,16 +60,13 @@ class YOLODetector:
             List of tuples containing (box, class_name, confidence)
         """
         self.logger.info(f"Running YOLO inference on {image_path}")
-        
-        # Check if image exists
+
         if not os.path.exists(image_path):
             self.logger.error(f"Image file not found: {image_path}")
             raise FileNotFoundError(f"Image file not found: {image_path}")
         
-        # Run YOLO inference
         results = self.model(image_path, conf=conf, iou=iou)
-        
-        # Extract detection results
+
         predictions = []
         
         for result in results:
@@ -105,10 +102,8 @@ class YOLODetector:
         Returns:
             List of detected blocks as dictionaries
         """
-        # Detect text blocks
         predictions = self.detect(image_path, conf, iou)
-        
-        # Convert to structured output
+
         results = []
         for i, (box, class_name, confidence) in enumerate(predictions):
             results.append({
@@ -122,28 +117,22 @@ class YOLODetector:
 
 
 if __name__ == "__main__":
-    # Simple test code for the detector
     import cv2
     from dotenv import load_dotenv
-    
-    # Load environment variables
+
     load_dotenv()
     
-    # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
-    
-    # Get paths from environment if available
+
     model_path = os.path.abspath(os.getenv("YOLO_MODEL_PATH", "./models/YOLO/best.pt"))
     input_image = os.path.abspath(os.getenv("INPUT_IMAGE", "./data/frames/test.jpg"))
-    
-    # Create detector and run detection
+
     detector = YOLODetector(model_path)
     results = detector.process_image(input_image)
-    
-    # Display results
+
     print(f"Detected {len(results)} text blocks:")
     for r in results:
         print(f"  ID: {r['id']}, Class: {r['class_name']}, Box: {r['box']}, Confidence: {r['confidence']:.4f}")

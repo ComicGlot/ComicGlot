@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 import cv2
 import matplotlib.pyplot as plt
 
-# Load environment variables from .env file
 load_dotenv()
 
 MODEL_PATH = os.getenv("DETR_MODEL_PATH", "facebook/detr-resnet-50")
@@ -24,7 +23,7 @@ inputs = processor(images=image, return_tensors="pt").to(DEVICE)
 outputs = model(**inputs)
 
 # convert outputs (bounding boxes and class logits) to COCO API
-# let's only keep detections with score > 0.9
+# only keep detections with score > 0.9
 target_sizes = torch.tensor([image.shape[:2]], dtype=torch.float32).to(DEVICE)
 results = processor.post_process_object_detection(outputs, target_sizes=target_sizes, threshold=0.9)[0]
 print(results)
@@ -36,7 +35,6 @@ for score, label, box in zip(results["scores"], results["labels"], results["boxe
             f"{round(score.item(), 3)} at location {box}"
     )
 
-# Plot image with bounding boxes
 plt.figure(figsize=(10, 10))
 plt.imshow(image_rgb)
 
@@ -44,12 +42,10 @@ for score, label, box in zip(results["scores"], results["labels"], results["boxe
     box = [round(i, 2) for i in box.tolist()]
     class_name = model.config.id2label[label.item()]
 
-    # Draw bounding box
     x_min, y_min, x_max, y_max = box
     plt.gca().add_patch(plt.Rectangle((x_min, y_min), x_max - x_min, y_max - y_min,
                                       fill=False, color='red', linewidth=2))
 
-    # Add label text
     text = f"{class_name}: {round(score.item(), 2)}"
     plt.text(x_min, y_min - 5, text, fontsize=12, color='red', backgroundcolor='white')
 

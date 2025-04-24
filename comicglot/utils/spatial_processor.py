@@ -17,7 +17,6 @@ def boxes_overlap(box1: np.ndarray, box2: np.ndarray) -> bool:
     x1_1, y1_1, x2_1, y2_1 = box1
     x1_2, y1_2, x2_2, y2_2 = box2
     
-    # Check if there is no overlap
     if x2_1 < x1_2 or x2_2 < x1_1 or y2_1 < y1_2 or y2_2 < y1_1:
         return False
     
@@ -112,6 +111,8 @@ def find_box_intersection_points(box1: np.ndarray, box2: np.ndarray) -> List[np.
     
     return intersection_points
 
+
+
 def create_separator_line(box1: np.ndarray, box2: np.ndarray) -> Optional[np.ndarray]:
     """
     Create a separator line between two overlapping boxes by finding exact intersection points.
@@ -123,15 +124,169 @@ def create_separator_line(box1: np.ndarray, box2: np.ndarray) -> Optional[np.nda
     Returns:
         Array of two points defining the separator line, or None if no valid separator can be created
     """
-    # Find all intersection points
-    intersection_points = find_box_intersection_points(box1, box2)
-    
-    # We need exactly 2 intersection points to create a valid separator line
-    if len(intersection_points) != 2:
+
+    if not boxes_overlap(box1, box2):
         return None
     
-    # Create separator line through the two intersection points
-    return np.array(intersection_points, dtype=np.int32)
+    x1_1, y1_1, x2_1, y2_1 = box1
+    x1_2, y1_2, x2_2, y2_2 = box2
+
+    box1_contains_box2_x = x1_1 <= x1_2 and x2_2 <= x2_1
+    box1_contains_box2_y = y1_1 <= y1_2 and y2_2 <= y2_1
+    box2_contains_box1_x = x1_2 <= x1_1 and x2_1 <= x2_2
+    box2_contains_box1_y = y1_2 <= y1_1 and y2_1 <= y2_2
+
+    if not (box1_contains_box2_x or box1_contains_box2_y or box2_contains_box1_x or box2_contains_box1_y):
+        intersection_points = find_box_intersection_points(box1, box2)
+        if len(intersection_points) != 2:
+            return None
+
+        return np.array(intersection_points, dtype=np.int32)
+
+    # Determine which box is "bigger" (contains the other along one coordinate)
+    if box1_contains_box2_x or box1_contains_box2_y:
+        bigger_box = box1
+        smaller_box = box2
+        bigger_center_x = (x1_1 + x2_1) / 2
+        bigger_center_y = (y1_1 + y2_1) / 2
+    else:  # box2 contains box1
+        bigger_box = box2
+        smaller_box = box1
+        bigger_center_x = (x1_2 + x2_2) / 2
+        bigger_center_y = (y1_2 + y2_2) / 2
+    
+    sx1, sy1, sx2, sy2 = smaller_box
+    bx1, by1, bx2, by2 = bigger_box
+    
+     # Find the closest point on the smaller box to the center of the bigger box
+    # Find distances to each edge
+    left_edge_y = np.clip(bigger_center_y, sy1, sy2)
+    right_edge_y = np.clip(bigger_center_y, sy1, sy2)
+    top_edge_x = np.clip(bigger_center_x, sx1, sx2)
+    bottom_edge_x = np.clip(bigger_center_x, sx1, sx2)
+    
+    # Calculate distances
+    dist_left = (sx1 - bigger_center_x)**2 + (left_edge_y - bigger_center_y)**2
+    dist_right = (sx2 - bigger_center_x)**2 + (right_edge_y - bigger_center_y)**2
+    dist_top = (top_edge_x - bigger_center_x)**2 + (sy1 - bigger_center_y)**2
+    dist_bottom = (bottom_edge_x - bigger_center_x)**2 + (sy2 - bigger_center_y)**2
+    
+    # Find minimum distance and corresponding point
+    min_dist = min(dist_left, dist_right, dist_top, dist_bottom)
+    
+    if min_dist == dist_left:
+        closest_point = (sx1, left_edge_y)
+    elif min_dist == dist_right:
+        closest_point = (sx2, right_edge_y)
+    elif min_dist == dist_top:
+        closest_point = (top_edge_x, sy1)
+    else:  # min_dist == dist_bottom
+        closest_point = (bottom_edge_x, sy2)
+    
+    # Calculate vector from center to closest point
+    vec_x = closest_point[0] - bigger_center_x
+    vec_y = closest_point[1] - bigger_center_y
+    
+    # Normalize the vector
+    length = np.sqrt(vec_x**2 + vec_y**2)
+    if length < 1e-6:  # Avoid division by zero
+        # Use default direction if too close
+        vec_x, vec_y = 1.0, 0.0
+    else:
+        vec_x /= length
+        vec_y /= length
+    
+    # Create perpendicular vector (rotate 90 degrees)
+    perp_x = -vec_y
+    perp_y = vec_x
+    
+    # Calculate the intersections of this perpendicular line with the borders of the bigger bubble
+    # Line equation: (x - x0) * perp_x + (y - y0) * perp_y = 0
+    # where (x0, y0) is closest_point
+    
+    # Find intersection with each edge of the bigger bubble
+    intersections = []
+    
+    # Top edge (y = by1)
+    if abs(perp_y) > 1e-6:  # Avoid division by zero
+        x = closest_point[0] + (by1 - closest_point[1]) * perp_x / perp_y
+        if bx1 <= x <= bx2:
+            intersections.append((x, by1))
+    
+    # Bottom edge (y = by2)
+    if abs(perp_y) > 1e-6:
+        x = closest_point[0] + (by2 - closest_point[1]) * perp_x / perp_y
+        if bx1 <= x <= bx2:
+            intersections.append((x, by2))
+    
+    # Left edge (x = bx1)
+    if abs(perp_x) > 1e-6:
+        y = closest_point[1] + (bx1 - closest_point[0]) * perp_y / perp_x
+        if by1 <= y <= by2:
+            intersections.append((bx1, y))
+    
+    # Right edge (x = bx2)
+    if abs(perp_x) > 1e-6:
+        y = closest_point[1] + (bx2 - closest_point[0]) * perp_y / perp_x
+        if by1 <= y <= by2:
+            intersections.append((bx2, y))
+    
+    # We should have exactly 2 intersections with the bigger bubble
+    if len(intersections) != 2:
+        # Fallback to using the closest point and the center
+        # and extending in that direction to the bubble boundaries
+        
+        # Direction from center to closest point
+        dir_x = closest_point[0] - bigger_center_x
+        dir_y = closest_point[1] - bigger_center_y
+        
+        # Find intersection of this line with bubble boundaries
+        t_values = []
+        
+        # Top edge
+        if dir_y < 0:  # Moving upward
+            t = (by1 - bigger_center_y) / dir_y
+            x = bigger_center_x + t * dir_x
+            if bx1 <= x <= bx2:
+                t_values.append(t)
+        
+        # Bottom edge
+        if dir_y > 0:  # Moving downward
+            t = (by2 - bigger_center_y) / dir_y
+            x = bigger_center_x + t * dir_x
+            if bx1 <= x <= bx2:
+                t_values.append(t)
+        
+        # Left edge
+        if dir_x < 0:  # Moving left
+            t = (bx1 - bigger_center_x) / dir_x
+            y = bigger_center_y + t * dir_y
+            if by1 <= y <= by2:
+                t_values.append(t)
+        
+        # Right edge
+        if dir_x > 0:  # Moving right
+            t = (bx2 - bigger_center_x) / dir_x
+            x = bigger_center_x + t * dir_x
+            if by1 <= y <= by2:
+                t_values.append(t)
+        
+        if t_values:
+            t = min(t_values)
+            boundary_point = (
+                bigger_center_x + t * dir_x,
+                bigger_center_y + t * dir_y
+            )
+            
+            # Now create perpendicular at this boundary point
+            intersections = [(boundary_point[0] + 100*perp_x, boundary_point[1] + 100*perp_y),
+                            (boundary_point[0] - 100*perp_x, boundary_point[1] - 100*perp_y)]
+    
+    # Convert to int and return
+    p1 = (int(intersections[0][0]), int(intersections[0][1]))
+    p2 = (int(intersections[1][0]), int(intersections[1][1]))
+    
+    return np.array([p1, p2], dtype=np.int32)
 
 def group_by_vertical_overlap(
     predictions: List[Tuple[np.ndarray, str, float]], 
@@ -158,7 +313,6 @@ def group_by_vertical_overlap(
         current_box = current[0]
         _, y1, _, y2 = current_box
         current_height = y2 - y1
-        y_tolerance = current_height * y_tolerance_ratio
         
         # Start a new group with the current box
         group = [current]
@@ -173,9 +327,10 @@ def group_by_vertical_overlap(
             _, other_y1, _, other_y2 = other_box
             
             # Check if boxes overlap in Y-coordinate range
-            if ((group_y1 - y_tolerance <= other_y1 <= group_y2 + y_tolerance) or
-                (group_y1 - y_tolerance <= other_y2 <= group_y2 + y_tolerance) or
-                (other_y1 <= group_y1 and other_y2 >= group_y2)):
+            if ((group_y1 <= other_y1 <= group_y2) or
+                (group_y1 <= other_y2 <= group_y2) or
+                (other_y1 <= group_y1 and other_y2 >= group_y2) or 
+                (other_y1 >= group_y1 and other_y2 <= group_y2)):
                 
                 # Add to the group and expand the group's y-range
                 group.append(other)
@@ -190,6 +345,47 @@ def group_by_vertical_overlap(
         groups.append(group)
     
     return groups
+
+def create_vertical_subgroups(group: List[Tuple[np.ndarray, str, float]], height_ratio: float = 0.5) -> List[List[Tuple[np.ndarray, str, float]]]:
+    """
+    Create subgroups for boxes that are very close vertically.
+    """
+    if not group:
+        return []
+    
+    # First, sort the group by y1 (top edge)
+    sorted_by_y = sorted(group, key=lambda p: p[0][1])
+    
+    subgroups = []
+    current_subgroup = [sorted_by_y[0]]
+    current_y1 = sorted_by_y[0][0][1]
+    current_height = sorted_by_y[0][0][3] - current_y1
+    y_threshold = current_y1 + current_height * height_ratio
+    
+    for item in sorted_by_y[1:]:
+        box = item[0]
+        y1 = box[1]
+        
+        # If this box's top edge is within the threshold, add to current subgroup
+        if y1 <= y_threshold:
+            current_subgroup.append(item)
+            # Recalculate threshold based on the lowest box in the subgroup
+            new_y1 = min([b[0][1] for b in current_subgroup])
+            new_height = max([b[0][3] - b[0][1] for b in current_subgroup])
+            y_threshold = new_y1 + new_height * height_ratio
+        else:
+            # Start a new subgroup
+            subgroups.append(current_subgroup)
+            current_subgroup = [item]
+            current_y1 = y1
+            current_height = box[3] - y1
+            y_threshold = current_y1 + current_height * height_ratio
+    
+    # Add the last subgroup
+    if current_subgroup:
+        subgroups.append(current_subgroup)
+    
+    return subgroups
 
 def rank_boxes(
     predictions: List[Tuple[np.ndarray, str, float]], 
@@ -224,26 +420,32 @@ def rank_boxes(
     separator_lines_lists = []
     
     for group in groups:
-        # Sort each group left-to-right
-        group.sort(key=lambda p: p[0][0])
+        # Create subgroups for boxes that are very close vertically
+        subgroups = create_vertical_subgroups(group)
         
-        # Find separators for overlapping boxes
-        for i, (box, class_name, confidence) in enumerate(group):
-            box_separator_lines = []
+        for subgroup in subgroups:
+            # Sort each subgroup left-to-right for reading order
+            subgroup.sort(key=lambda p: p[0][0])  # Sort by x1
             
-            # Check for overlaps with other boxes in the same group
-            for j, (other_box, _, _) in enumerate(group):
-                if i == j:  # Skip self-comparison
-                    continue
-                
-                # Check if boxes overlap
-                if boxes_overlap(box, other_box):
-                    separator_line = create_separator_line(box, other_box)
-                    if separator_line is not None:
-                        box_separator_lines.append(separator_line)
+            for box, class_name, confidence in subgroup:
+                ranked_preds.append((box, class_name, confidence))
+    
+    # Now that the predictions are ranked, identify separators for overlapping boxes
+    for i, (box, _, _) in enumerate(ranked_preds):
+        box_separator_lines = []
+        
+        # Check for overlaps with all other boxes
+        for j, (other_box, _, _) in enumerate(ranked_preds):
+            if i == j:  # Skip self-comparison
+                continue
             
-            ranked_preds.append((box, class_name, confidence))
-            separator_lines_lists.append(box_separator_lines)
+            # Check if boxes overlap
+            if boxes_overlap(box, other_box):
+                separator_line = create_separator_line(box, other_box)
+                if separator_line is not None:
+                    box_separator_lines.append(separator_line)
+        
+        separator_lines_lists.append(box_separator_lines)
     
     return ranked_preds, separator_lines_lists
 
@@ -421,7 +623,12 @@ if __name__ == "__main__":
     vis_confidences = [block.confidence for block in sorted_blocks]
     vis_ids = [block.id for block in sorted_blocks]
     
-    vis_image = draw_boxes_with_labels(vis_image, vis_boxes, vis_classes, vis_confidences, vis_ids)
+    labels = [
+        f"{vis_ids[i]}: {vis_classes[i]} ({vis_confidences[i]:.2f})"
+        for i in range(len(vis_boxes))
+    ]
+
+    vis_image = draw_boxes_with_labels(vis_image, vis_boxes, labels)
     vis_image = visualize_separator_lines(vis_image, sorted_blocks, separator_lines_lists)
     
     plt.imshow(cv2.cvtColor(vis_image, cv2.COLOR_BGR2RGB))

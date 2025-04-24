@@ -18,10 +18,8 @@ from tensorboard import program
 
 import multiprocessing
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Set the start method for multiprocessing
 multiprocessing.set_start_method('spawn', force=True)
 
 COCO_DATA_PATH = os.path.abspath(os.getenv("COCO_DATA_PATH", "./datasets/Manhua_bubbles.v7i.coco"))
@@ -124,11 +122,6 @@ print(id2label)
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
 
-#NOTE: Here we define a regular PyTorch dataset. Each item of the dataset is an image and corresponding annotations. 
-# Torchvision already provides a CocoDetection dataset, which we can use. We only add a feature extractor (DetrImageProcessor) 
-# to resize + normalize the images, and to turn the annotations (which are in COCO format) in the format that DETR expects. 
-# It will also resize the annotations accordingly.
-
 class Detr(pl.LightningModule):
 
     def __init__(self, lr, lr_backbone, weight_decay):
@@ -160,7 +153,6 @@ class Detr(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss, loss_dict = self.common_step(batch, batch_idx)     
-        # logs metrics for each training_step, and the average across the epoch
         self.log("training_loss", loss)
         for k,v in loss_dict.items():
             self.log("train_" + k, v.item())
@@ -177,7 +169,6 @@ class Detr(pl.LightningModule):
 
     def configure_optimizers(self):
         # DETR authors decided to use different learning rate for backbone
-        # you can learn more about it here: 
         # - https://github.com/facebookresearch/detr/blob/3af9fa878e73b6894ce3596450a8d9b89d918ca9/main.py#L22-L23
         # - https://github.com/facebookresearch/detr/blob/3af9fa878e73b6894ce3596450a8d9b89d918ca9/main.py#L131-L139
         param_dicts = [
@@ -202,7 +193,6 @@ def start_tensorboard(log_dir='lightning_logs/'):
     return tb.launch()
 
 def main():
-    # Start TensorBoard
     log_dir = 'lightning_logs/'
     url = start_tensorboard(log_dir)
     print(f'TensorBoard is running at {url}')

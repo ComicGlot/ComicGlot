@@ -345,7 +345,7 @@ class ComicProcessor:
 
                 labels = [f"{i+1}: {block.get('text', '')[:20]}" for i, block in enumerate(results["blocks"])]
                 
-                viz = draw_boxes_with_labels(image, boxes, classes, confidences, ids)
+                viz = draw_boxes_with_labels(image, boxes, labels)
 
                 final_viz_path = os.path.join(output_path, f"{base_name}_final.jpg")
                 cv2.imwrite(final_viz_path, viz)

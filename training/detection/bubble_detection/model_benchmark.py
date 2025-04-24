@@ -27,8 +27,8 @@ IMAGES_DIR = DATASET_DIR
 ANNOTATIONS_FILE = os.path.join(DATASET_DIR, "_annotations.coco.json")
 OUTPUT_DIR = "./training/detection/benchmark"
 CONFIDENCE_THRESHOLD = 0.5
-IOU_THRESHOLD = 0.5  # IoU threshold for determining if a detection matches a ground truth box
-MAX_IMAGES = 1000  # Maximum number of images to process for benchmarking
+IOU_THRESHOLD = 0.5
+MAX_IMAGES = 1000
 
 # Class names will be loaded from COCO file
 CLASS_NAMES = []

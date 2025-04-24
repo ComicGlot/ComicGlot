@@ -2,11 +2,9 @@ import os
 import csv
 from datasets import load_dataset
 
-# Define dataset paths
 SYNTH_OCR_DATA_PATH = os.path.abspath(os.getenv("SYNTH_OCR_DATA_PATH", "../synthtiger_gen/results"))
 GT_FILE = os.path.join(SYNTH_OCR_DATA_PATH, "gt_1.txt")
 
-# Load dataset in streaming mode
 dataset = load_dataset(
     "text",  # Load as raw text
     data_files={"train": GT_FILE},
@@ -20,7 +18,6 @@ def process_line(example):
 
 dataset = dataset.map(process_line)
 
-# Iterate and check for issues
 for i, row in enumerate(dataset):
     if not isinstance(row, dict) or "file_path" not in row or "text" not in row:
         print(f"❌ Issue at line {i}: {row}")  # Row structure is broken
@@ -42,6 +39,4 @@ for i, row in enumerate(dataset):
         print(f"⚠️ Extra tab detected in file path at line {i}: {row['file_path']}")
         break
 
-    #if i > 1000:  # Limit to first 1000 lines to avoid long runtime
-    #    break
     print(row)

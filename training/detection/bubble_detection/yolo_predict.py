@@ -48,16 +48,13 @@ if __name__ == '__main__':
     #os.makedirs(output_folder, exist_ok=True)
 
     for root, dirs, files in os.walk(folder):
-        # Reconstruct the corresponding output folder structure
         relative_path = os.path.relpath(root, folder)
         current_output_folder = os.path.join(output_folder, relative_path)
         os.makedirs(current_output_folder, exist_ok=True)
 
         for image_name in files:
-            # Build the full path of the image
             image_path = os.path.join(root, image_name)
 
-            # Process only image files
             if image_name.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff')):
                 print(f"Processing {image_path}")
 

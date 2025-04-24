@@ -38,18 +38,15 @@ class DETRDetector:
             model_path: Path to the DETR model weights folder or model name
         """
         self.logger = logging.getLogger(self.__class__.__name__)
-        
-        # Check if CUDA is available
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.logger.info(f"Using device: {self.device}")
-        
-        # Load processor and model separately
+
         try:
             # Always load the processor from the base model
             self.processor = DetrImageProcessor.from_pretrained("facebook/detr-resnet-50", revision="no_timm")
             self.logger.info("DETR processor loaded successfully")
-            
-            # Load the model from specified path (custom or base)
+
             if os.path.exists(model_path) and not model_path.startswith(("http://", "https://")):
                 self.logger.info(f"Loading DETR model from local path: {model_path}")
             else:
@@ -84,32 +81,26 @@ class DETRDetector:
         import cv2  # Import here to avoid dependency for basic usage
         
         self.logger.info(f"Running DETR inference on {image_path}")
-        
-        # Check if image exists
+
         if not os.path.exists(image_path):
             self.logger.error(f"Image file not found: {image_path}")
             raise FileNotFoundError(f"Image file not found: {image_path}")
-        
-        # Load and prepare image
+
         image = cv2.imread(image_path)
         if image is None:
             self.logger.error(f"Failed to load image: {image_path}")
             raise ValueError(f"Failed to load image: {image_path}")
-        
-        # Process image for DETR
+
         inputs = self.processor(images=image, return_tensors="pt").to(self.device)
-        
-        # Run inference
+
         with torch.no_grad():
             outputs = self.model(**inputs)
-        
-        # Post-process outputs
+
         target_sizes = torch.tensor([image.shape[:2]], dtype=torch.float32).to(self.device)
         results = self.processor.post_process_object_detection(
             outputs, target_sizes=target_sizes, threshold=threshold
         )[0]
-        
-        # Format results
+
         predictions = []
         for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
             box_np = np.array([
@@ -142,10 +133,8 @@ class DETRDetector:
         Returns:
             List of detected blocks as dictionaries
         """
-        # Detect text blocks
         predictions = self.detect(image_path, threshold)
-        
-        # Convert to structured output
+
         results = []
         for i, (box, class_name, confidence) in enumerate(predictions):
             results.append({
@@ -159,28 +148,22 @@ class DETRDetector:
 
 
 if __name__ == "__main__":
-    # Simple test code for the detector
     import cv2
     from dotenv import load_dotenv
-    
-    # Load environment variables
+
     load_dotenv()
-    
-    # Configure logging
+
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
-    
-    # Get paths from environment if available
+
     model_path = os.getenv("DETR_MODEL_PATH", "facebook/detr-resnet-50")
     input_image = os.path.abspath(os.getenv("INPUT_IMAGE", "./data/frames/test.jpg"))
-    
-    # Create detector and run detection
+
     detector = DETRDetector(model_path)
     results = detector.process_image(input_image)
-    
-    # Display results
+
     print(f"Detected {len(results)} text blocks:")
     for r in results:
         print(f"  ID: {r['id']}, Class: {r['class_name']}, Box: {r['box']}, Confidence: {r['confidence']:.4f}")

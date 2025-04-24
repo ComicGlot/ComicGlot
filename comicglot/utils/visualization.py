@@ -58,9 +58,8 @@ def draw_bounding_box(
 def draw_boxes_with_labels(
     image: np.ndarray,
     boxes: List[np.ndarray],
-    classes: List[str],
-    confidences: List[float],
-    ids: Optional[List[int]] = None,
+    labels: List[str],
+    class_names: List[str] = None,
     color_map: Optional[Dict[str, Tuple[int, int, int]]] = None,
     line_thickness: int = 2
 ) -> np.ndarray:
@@ -109,20 +108,14 @@ def draw_boxes_with_labels(
     except IOError:
         font = ImageFont.load_default()
 
-    for i, (box, class_name, confidence) in enumerate(zip(boxes, classes, confidences)):
+    for i, (box, label) in enumerate(zip(boxes, labels)):
         x_min, y_min, x_max, y_max = map(int, box)
-
-        if class_name in color_map:
-            color_rgb = color_map[class_name]
+        if class_names and (class_names[i] in color_map):
+            color_rgb = color_map[class_names[i]]
         else:
-            color_rgb = (255, 0, 0)
+            color_rgb = (0, 255, 0)
 
         draw.rectangle([x_min, y_min, x_max, y_max], outline=color_rgb, width=line_thickness)
-
-        if ids is not None:
-            label = f"{ids[i]}: {class_name} ({confidence:.2f})"
-        else:
-            label = f"{class_name} ({confidence:.2f})"
 
         label_bbox = draw.textbbox((0, 0), label, font=font)
         label_width = label_bbox[2] - label_bbox[0]
