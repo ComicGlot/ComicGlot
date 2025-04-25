@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 from dotenv import load_dotenv
 import torch
+from natsort import natsorted
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
@@ -191,7 +192,7 @@ def process_folder(
     
     logger.info(f"Found {len(image_files)} image(s)")
 
-    image_files = sorted(image_files)
+    image_files = natsorted(image_files)
 
     all_results = {
         "processed_time": time.strftime("%Y-%m-%d %H:%M:%S"),

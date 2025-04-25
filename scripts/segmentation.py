@@ -22,7 +22,7 @@ project_root = os.path.dirname(os.path.dirname(current_dir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from comicglot.utils.image_utils import segment_by_seam_carving
+from comicglot.utils.seam_segmentor import segment_by_seam_carving
 
 load_dotenv()
 
@@ -123,7 +123,7 @@ def batch_process_chapters(
     logging.info(f"Found {len(chapter_folders)} potential chapter folders")
     
     results = {}
-    for chapter_name in sorted(chapter_folders):
+    for chapter_name in natsorted(chapter_folders):
         chapter_path = os.path.join(base_path, chapter_name)
 
         if output_base_path:

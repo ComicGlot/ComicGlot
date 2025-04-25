@@ -1,0 +1,29 @@
+{
+    "speech_bubble": "This text is from a standard speech bubble. Use natural, conversational language appropriate for dialogue. Maintain the original tone and any slang or informal expressions in an equivalent way in the target language.",
+    
+    "cloud_bubble": "This text is from a cloud-shaped bubble, indicating upbeat or happy speech. Use a light, cheerful tone. Include appropriate elongated words or sounds to convey happiness or excitement. Use tildes (~) where appropriate for emphasis.",
+    
+    "scream_bubble": "This text is from a scream bubble with jagged edges, indicating shouting or intense emotion. Use multiple exclamation marks and strong emotional language. Emphasize the intensity of the feeling being expressed.",
+    
+    "spiked_bubble": "This text is from a spiked bubble indicating intense or aggressive thoughts. Use sharp, direct language with strong emphasis. May include internal conflict or intense emotions.",
+    
+    "system_bubble": "This text is system information or UI text. Use a formal, precise style. Maintain any technical terms, status indicators, or formatting. Keep it clean and structured, similar to video game interface text.",
+    
+    "think_bubble": "This text represents the character's thoughts. Use introspective, reflective language. Include thought fragments, ellipses (...) where appropriate. The tone should feel internal and contemplative.",
+    
+    "standalone_text": "This is standalone text without a bubble. Use a neutral narrative voice. It may be background information or scene-setting text. Keep the translation concise.",
+    
+    "sfx_sound": "This text represents a sound effect. Instead of literal translation, use the equivalent sound effect in the target language that would convey the same sound or impact. If the target language doesn't have an equivalent, adapt the sound effect to fit the phonetic patterns of the target language. Use ALL CAPS for emphasis where appropriate.",
+    
+    "hexagon_bubble": "This text is from a hexagonal bubble, often indicating mechanical or magical speech. Use a more formal or structured tone, possibly with specialized vocabulary depending on the context.",
+    
+    "square_bubble": "This text is from a square bubble, often used for narration or voice-overs. Use a clear, narrative style. This may be more formal than regular dialogue.",
+    
+    "wiggle_bubble": "This text is from a wavy/wiggling bubble, indicating weakness, fear, or uncertainty. Use stuttering, trembling speech patterns, or hesitant language. May include ellipses and broken sentence structures to convey the emotional state.",
+    
+    "title_panel": "This is title or chapter text. Translate with emphasis on clarity and impact. Consider cultural context for chapter titles, maintaining any wordplay or special meaning if possible. Format should match the original's emphasis.",
+    
+    "background_text": "This is background text integrated into the scene, like signs, books, or environmental text. Translate with attention to physical context. Keep it concise and appropriate to its location in the image.",
+    
+    "default": "Translate this text naturally while preserving the original tone and meaning. Consider context and maintain any emphasis or special formatting from the original."
+}

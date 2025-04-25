@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Union, Tuple, Any
 import cv2
 import numpy as np
 import time
+from natsort import natsorted
 
 class ComicProcessor:
     """
@@ -407,7 +408,7 @@ class ComicProcessor:
         
         if not use_segmentation:
             image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp'))]
-            image_files.sort()  # Ensure consistent order
+            image_files = natsorted(image_files)  # Ensure consistent order
             for image_file in image_files:
                 image_path = os.path.join(input_dir, image_file)
                 images_to_process.append(image_path)
