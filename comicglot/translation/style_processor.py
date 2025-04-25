@@ -292,7 +292,7 @@ class StyleTranslator:
         target_lang: str,
         bubble_type: str = "speech_bubble",
         context: Optional[List[Dict]] = None,
-        max_tokens: int = 256
+        max_tokens: int = 1024
     ) -> str:
         """
         Translate text with stylistic adaptation based on bubble type.
@@ -354,7 +354,7 @@ class StyleTranslator:
         contexts: Optional[List[List[Dict]]] = None,
         context_strategy: Optional[str] = None,
         context_window_size: int = 2,
-        max_tokens: int = 256,
+        max_tokens: int = 1024,
         concurrency_limit: int = 5
     ) -> List[str]:
         """
@@ -428,7 +428,7 @@ class StyleTranslator:
 
         valid_prompts = [p for p in prompts if p]
         filtered_indices = [valid_indices[i] for i, p in enumerate(prompts) if p]
-        print(valid_prompts)
+        #print(valid_prompts)
         if not valid_prompts:
             return texts  # Return original texts if no valid prompts
         
@@ -440,7 +440,7 @@ class StyleTranslator:
                 temperature=self.temperature,
                 concurrency_limit=concurrency_limit
             )
-            print(responses)
+            #print(responses)
 
             translated_texts = []
             for response in responses:

@@ -75,7 +75,7 @@ class OCRCorrector:
         ocr_results: List[str],
         context: Optional[str] = None,
         language: str = "korean",
-        max_tokens: int = 2048
+        max_tokens: int = 1024
     ) -> str:
         """
         Correct OCR text by comparing multiple results.
@@ -132,7 +132,7 @@ class OCRCorrector:
         ocr_results_list: List[List[str]],
         contexts: Optional[List[str]] = None,
         language: str = "ko",
-        max_tokens: int = 2048,
+        max_tokens: int = 1024,
         concurrency_limit: int = 5
     ) -> List[str]:
         """

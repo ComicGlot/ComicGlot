@@ -4,10 +4,6 @@ OCR recognition script for comic processing.
 This script provides a standalone interface for OCR processing of text bubbles
 in comic images. It can process individual images or folders of cropped text bubbles,
 perform CRAFT text line detection, and recognize text using TrOCR or EasyOCR.
-
-Usage:
-    python ocr_recognition.py --input path/to/bubble_image.jpg --output path/to/output
-    python ocr_recognition.py --input path/to/folder --output path/to/output --recursive
 """
 
 import os

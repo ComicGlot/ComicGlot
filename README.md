@@ -57,7 +57,7 @@ ComicGlot can be used programmatically or via command-line tools.
 ### Processing a Single Image
 
 ```python
-from comicglot.pipeline import ComicProcessor
+from comicglot.comic_processor import ComicProcessor
 
 # Initialize the processor
 processor = ComicProcessor()
