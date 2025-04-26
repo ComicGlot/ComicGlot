@@ -404,7 +404,6 @@ class ComicProcessor:
         image_name = os.path.basename(image_path) if isinstance(image_path, str) else "segment.jpg"
         base_name = os.path.splitext(image_name)[0]
 
-        # Save detailed JSON results
         json_path = os.path.join(output_path, f"{base_name}_results.json")
         with open(json_path, 'w', encoding='utf-8') as f:
             import json
@@ -507,6 +506,18 @@ class ComicProcessor:
 
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
+            
+            # Create task-based directory structure
+            if save_segments:
+                os.makedirs(os.path.join(output_dir, "segments"), exist_ok=True)
+            if save_detection:
+                os.makedirs(os.path.join(output_dir, "detection"), exist_ok=True)
+            if save_recognition:
+                os.makedirs(os.path.join(output_dir, "recognition"), exist_ok=True)
+            if save_translation:
+                os.makedirs(os.path.join(output_dir, "translation"), exist_ok=True)
+            if save_crops:
+                os.makedirs(os.path.join(output_dir, "crops"), exist_ok=True)
 
         # STEP 1: SEGMENTATION (if enabled)
         self.logger.info("STEP 1: Segmentation")
@@ -522,7 +533,7 @@ class ComicProcessor:
         if not image_files:
             self.logger.error(f"No image files found in: {input_dir}")
             raise ValueError(f"No image files found in: {input_dir}")
-            
+                
         self.logger.info(f"Found {len(image_files)} images to process")
         
         segments = []
@@ -536,46 +547,39 @@ class ComicProcessor:
                 if output_dir and save_segments:
                     segments_dir = os.path.join(output_dir, "segments")
                 
-                for i, image_path in enumerate(image_files):
-                    try:
-                        image_name = os.path.basename(image_path)
-                        self.logger.info(f"Segmenting image {i+1}/{len(image_files)}: {image_name}")
+                # Call segment_by_seam_carving directly on the input directory
+                segment_results = segment_by_seam_carving(
+                    input_path=input_dir,
+                    min_height=self.min_seg_height,
+                    save_crops=save_segments,
+                    output_path=segments_dir,
+                    resize=True
+                )
+                
+                # Process the results
+                segments = segment_results['segments']
+                
+                # Set segment paths if segments are saved
+                if save_segments and segments_dir:
+                    for i in range(len(segments)):
+                        segment_filename = f"segment_{i+1:03d}.png"
+                        segment_path = os.path.join(segments_dir, segment_filename)
+                        segment_paths.append(segment_path)
                         
-                        # Create output dir for this image's segments if needed
-                        image_segments_dir = None
-                        if segments_dir:
-                            image_base_name = os.path.splitext(image_name)[0]
-                            image_segments_dir = os.path.join(segments_dir, image_base_name)
-                            os.makedirs(image_segments_dir, exist_ok=True)
-                        
-                        segment_results = segment_by_seam_carving(
-                            input_path=image_path, 
-                            min_height=self.min_seg_height,
-                            save_crops=save_segments,
-                            output_path=image_segments_dir,
-                            resize=True
-                        )
-                        
-                        for j, segment in enumerate(segment_results['segments']):
-                            segments.append(segment)
-                            segment_sources.append(image_path)
-                            
-                            # If saving, use the saved path, otherwise use None (we'll use the numpy array)
-                            if save_segments and image_segments_dir:
-                                segment_filename = f"{os.path.splitext(image_name)[0]}_segment_{j+1:03d}.png"
-                                segment_path = os.path.join(image_segments_dir, segment_filename)
-                                segment_paths.append(segment_path)
-                            else:
-                                segment_paths.append(None)
-                                
-                    except Exception as e:
-                        self.logger.error(f"Error segmenting image {image_path}: {e}")
-                        # Continue with the next image
+                        # Track the source image (approximately)
+                        # In a real scenario, we might need a better mapping
+                        segment_sources.append(image_files[min(i, len(image_files)-1)])
+                else:
+                    segment_paths = [None] * len(segments)
+                    # Approximate mapping of sources
+                    for i in range(len(segments)):
+                        segment_sources.append(image_files[min(i, len(image_files)-1)])
                 
                 self.logger.info(f"Created {len(segments)} segments from {len(image_files)} images")
-                
+                    
             except Exception as e:
                 self.logger.warning(f"Segmentation failed: {e}, falling back to processing original images")
+                self.logger.exception("Segmentation error details:")
                 self.use_segmentation = False
                 segments = []
                 segment_paths = []
@@ -593,27 +597,23 @@ class ComicProcessor:
         
         all_blocks = []
         all_frames = []
-        block_to_frame_map = {}  # Maps block index to frame index
+        frame_to_image_map = {}  # Maps frame index to original image path
         
-        for i, (segment, source) in enumerate(zip(segments if segments else [], segment_sources)):
+        for i, image_path in enumerate(segment_paths):
             try:
-                segment_path = segment_paths[i] if segment_paths else None
-                image_path = segment_path if segment_path else source
+                self.logger.info(f"Detecting text blocks in frame {i+1}/{len(segment_paths)}")
                 
                 # For numpy array segments without saved path, we need to use the segment directly
-                if isinstance(segment, np.ndarray) and not segment_path:
+                if self.use_segmentation and segments and not image_path:
                     # Create a temporary file to use the detector
-                    temp_dir = os.path.join(output_dir, "temp") if output_dir else None
-                    if temp_dir:
-                        os.makedirs(temp_dir, exist_ok=True)
-                        temp_path = os.path.join(temp_dir, f"temp_segment_{i}.png")
-                        cv2.imwrite(temp_path, segment)
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                        temp_path = temp_file.name
+                        cv2.imwrite(temp_path, segments[i])
                         image_path = temp_path
-                    else:
-                        self.logger.warning(f"Skipping segment {i} as it cannot be processed without saving")
-                        continue
-                
-                self.logger.info(f"Detecting text blocks in segment {i+1}/{len(segment_sources)}")
+                        temp_created = True
+                else:
+                    temp_created = False
                 
                 # Detect text blocks
                 detected_blocks = self.detector.process_image(image_path, conf=0.5, iou=0.7)
@@ -640,53 +640,76 @@ class ComicProcessor:
                         "class_name": block.class_name,
                         "confidence": block.confidence,
                         "separators": [sep.tolist() for sep in separators] if separators else None,
-                        "source_image": source  # Keep track of the original source image
+                        "source_image": segment_sources[i] if i < len(segment_sources) else None
                     }
                     processed_blocks.append(block_dict)
-                    block_to_frame_map[len(all_blocks) + j] = len(all_frames)
                 
                 # Save detection visualization if requested
                 if output_dir and save_detection:
                     try:
-                        frame_output_dir = os.path.join(output_dir, f"frame_{len(all_frames)+1:03d}")
-                        os.makedirs(frame_output_dir, exist_ok=True)
+                        detection_dir = os.path.join(output_dir, "detection")
                         
                         image = load_image(image_path)
-                        boxes = [np.array(block["box"]) for block in processed_blocks]
-                        classes = [block["class_name"] for block in processed_blocks]
-                        confidences = [block["confidence"] for block in processed_blocks]
-                        
-                        labels = [
-                            f"{block['id']}: {block['class_name']} ({block['confidence']:.2f})"
-                            for block in processed_blocks
-                        ]
-                        
-                        detection_viz = draw_boxes_with_labels(image.copy(), boxes, labels, classes)
-                        detection_viz_path = os.path.join(frame_output_dir, "detection.jpg")
-                        save_image(detection_viz, detection_viz_path)
+                        if image is None:
+                            self.logger.warning(f"Could not load image for visualization: {image_path}")
+                        else:
+                            boxes = [np.array(block["box"]) for block in processed_blocks]
+                            classes = [block["class_name"] for block in processed_blocks]
+                            confidences = [block["confidence"] for block in processed_blocks]
+                            
+                            labels = [
+                                f"{block['id']}: {block['class_name']} ({block['confidence']:.2f})"
+                                for block in processed_blocks
+                            ]
+                            
+                            detection_viz = draw_boxes_with_labels(image.copy(), boxes, labels, classes)
+                            
+                            # Add separator lines to the visualization
+                            for j, block_dict in enumerate(processed_blocks):
+                                if block_dict.get("separators"):
+                                    block = TextBlock(
+                                        box=np.array(block_dict["box"]), 
+                                        class_name=block_dict["class_name"],
+                                        confidence=block_dict["confidence"], 
+                                        id=block_dict["id"]
+                                    )
+                                    separators = [np.array(sep) for sep in block_dict["separators"]]
+                                    detection_viz = visualize_separator_lines(detection_viz, [block], [separators])
+                            
+                            # Use frame number in the filename
+                            detection_viz_path = os.path.join(detection_dir, f"frame_{i+1:03d}.jpg")
+                            save_image(detection_viz, detection_viz_path)
                     except Exception as e:
                         self.logger.warning(f"Failed to save detection visualization: {e}")
                 
-                # Add frame and blocks to global tracking
+                # Clean up temporary file if created
+                if temp_created:
+                    try:
+                        os.unlink(image_path)
+                    except:
+                        pass
+                
+                # Add blocks and frame info to tracking lists
                 all_blocks.extend(processed_blocks)
                 
                 frame_info = {
                     "id": len(all_frames),
                     "image_path": image_path,
-                    "source_image": source,
+                    "source_image": segment_sources[i] if i < len(segment_sources) else None,
                     "blocks": processed_blocks,
                     "num_blocks": len(processed_blocks)
                 }
                 all_frames.append(frame_info)
+                frame_to_image_map[len(all_frames) - 1] = segment_sources[i] if i < len(segment_sources) else None
                 
             except Exception as e:
-                self.logger.error(f"Error in detection step for segment {i}: {e}")
-                # Continue with next segment
+                self.logger.error(f"Error in detection step for frame {i+1}: {e}")
+                # Continue with next frame
         
         if not all_frames:
             self.logger.error("No frames were successfully processed in the detection step")
             raise RuntimeError("Detection failed for all images")
-            
+                
         self.logger.info(f"Detection completed: {len(all_blocks)} blocks detected across {len(all_frames)} frames")
         
         # STEP 3: RECOGNITION
@@ -714,34 +737,36 @@ class ComicProcessor:
                 if output_dir and save_crops:
                     try:
                         image = load_image(image_path)
-                        frame_output_dir = os.path.join(output_dir, f"frame_{i+1:03d}")
-                        crops_dir = os.path.join(frame_output_dir, "crops")
-                        os.makedirs(crops_dir, exist_ok=True)
-                        
-                        for block in frame_blocks:
-                            try:
-                                box = np.array(block["box"]).astype(int)
-                                x1, y1, x2, y2 = box
-                                crop = image[y1:y2, x1:x2].copy()
-                                
-                                # Apply separator masks if needed
-                                if self.apply_separators and block.get("separators"):
-                                    from comicglot.utils.spatial_processor import apply_separator_masks
-                                    local_separators = []
-                                    for sep in block["separators"]:
-                                        local_p1 = np.array([sep[0][0] - x1, sep[0][1] - y1], dtype=np.int32)
-                                        local_p2 = np.array([sep[1][0] - x1, sep[1][1] - y1], dtype=np.int32)
-                                        local_sep = np.array([local_p1, local_p2])
-                                        local_separators.append(local_sep)
+                        if image is not None:
+                            crops_dir = os.path.join(output_dir, "crops")
+                            
+                            for block in frame_blocks:
+                                try:
+                                    box = np.array(block["box"]).astype(int)
+                                    x1, y1, x2, y2 = box
+                                    crop = image[y1:y2, x1:x2].copy()
                                     
-                                    crop = apply_separator_masks(crop, local_separators)
-                                
-                                crop_path = os.path.join(crops_dir, f"block_{block['id']:03d}_{block['class_name']}.jpg")
-                                save_image(crop, crop_path)
-                            except Exception as e:
-                                self.logger.warning(f"Failed to save crop for block {block['id']}: {e}")
+                                    # Apply separator masks if needed
+                                    if self.apply_separators and block.get("separators"):
+                                        local_separators = []
+                                        for sep in block["separators"]:
+                                            local_p1 = np.array([sep[0][0] - x1, sep[0][1] - y1], dtype=np.int32)
+                                            local_p2 = np.array([sep[1][0] - x1, sep[1][1] - y1], dtype=np.int32)
+                                            local_sep = np.array([local_p1, local_p2])
+                                            local_separators.append(local_sep)
+                                        
+                                        from comicglot.utils.spatial_processor import apply_separator_masks
+                                        crop = apply_separator_masks(crop, local_separators)
+                                    
+                                    # Use block ID and class in the filename
+                                    crop_path = os.path.join(crops_dir, f"frame_{i+1:03d}_block_{block['id']:03d}_{block['class_name']}.jpg")
+                                    save_image(crop, crop_path)
+                                except Exception as e:
+                                    self.logger.warning(f"Failed to save crop for block {block['id']}: {e}")
+                        else:
+                            self.logger.warning(f"Could not load image for crops: {image_path}")
                     except Exception as e:
-                        self.logger.warning(f"Failed to save crops for frame {i+1}: {e}")
+                        self.logger.warning(f"Failed to save crops: {e}")
                 
                 # If dual OCR is enabled, perform secondary recognition
                 if self.dual_ocr and self.secondary_recognizer:
@@ -766,30 +791,102 @@ class ComicProcessor:
                     
                     # Update in frame blocks too
                     frame_blocks[j].update(ocr_result)
-                
-                # Save recognition visualization if requested
+
                 if output_dir and save_recognition:
                     try:
-                        image = load_image(image_path)
-                        frame_output_dir = os.path.join(output_dir, f"frame_{i+1:03d}")
+                        recognition_dir = os.path.join(output_dir, "recognition")
+                        os.makedirs(recognition_dir, exist_ok=True)
+
+                        detection_path = None
+                        if save_detection:
+                            detection_dir = os.path.join(output_dir, "detection")
+                            detection_path = os.path.join(detection_dir, f"frame_{i+1:03d}.jpg")
+
+                        if detection_path and os.path.exists(detection_path):
+                            base_image = load_image(detection_path)
+                        else:
+                            base_image = load_image(image_path)
+                            
+                            if base_image is not None:
+                                text_blocks = []
+                                separator_lines_lists = []
+                                
+                                for block in frame_blocks:
+                                    text_block = TextBlock(
+                                        box=np.array(block["box"]),
+                                        class_name=block["class_name"],
+                                        confidence=block["confidence"],
+                                        id=block["id"]
+                                    )
+                                    text_blocks.append(text_block)
+                                    
+                                    if block.get("separators"):
+                                        separator_lines = [np.array(sep) for sep in block["separators"]]
+                                        separator_lines_lists.append(separator_lines)
+                                    else:
+                                        separator_lines_lists.append([])
+
+                                bubble_boxes = [block.box for block in text_blocks]
+                                classes = [block.class_name for block in text_blocks]
+                                labels = [f"{block.class_name} ({block.confidence:.2f})" for block in text_blocks]
+                                
+                                base_image = draw_boxes_with_labels(base_image, bubble_boxes, labels, classes)
+                                base_image = visualize_separator_lines(base_image, text_blocks, separator_lines_lists)
                         
-                        boxes = [np.array(block["box"]) for block in frame_blocks]
-                        
-                        text_labels = [
-                            f"{block['id']}: {block.get('text', '')}"
-                            for block in frame_blocks
-                        ]
-                        
-                        text_viz = draw_boxes_with_labels(image.copy(), boxes, text_labels)
-                        text_viz_path = os.path.join(frame_output_dir, "text.jpg")
-                        save_image(text_viz, text_viz_path)
+                        if base_image is not None:
+                            # Now draw CRAFT detected lines with their text
+                            line_boxes = []
+                            line_texts = []
+                            
+                            for block in frame_blocks:
+                                # Get the bubble coordinates
+                                x_min, y_min, x_max, y_max = map(int, block["box"])
+                                
+                                if "text_lines" in block and block["text_lines"]:
+                                    for line in block["text_lines"]:
+                                        if "box" in line and "text" in line:
+                                            # # Transform local line coordinates to global image coordinates
+                                            # local_box = line["box"]
+                                            
+                                            # # Check if these are already global coordinates
+                                            # if len(local_box) == 4 and isinstance(local_box[0], (int, float)):
+                                            #     # Already in the right format - these are likely global coordinates
+                                            #     global_box = np.array(local_box)
+                                            # else:
+                                            #     # Convert local to global coordinates by adding bubble's top-left corner
+                                            #     local_x1, local_y1, local_x2, local_y2 = local_box
+                                            #     global_box = np.array([
+                                            #         local_x1 + x_min, 
+                                            #         local_y1 + y_min,
+                                            #         local_x2 + x_min, 
+                                            #         local_y2 + y_min
+                                            #     ])
+                                            # 
+                                            # line_boxes.append(global_box)
+                                            # line_texts.append(line["text"])
+                                            line_boxes.append(np.array(line["box"]))
+                                            line_texts.append(line["text"])
+                            
+                            # Add text lines to the visualization
+                            if line_boxes:
+                                final_viz = draw_boxes_with_labels(
+                                    base_image,                             # Use detection visualization as base
+                                    line_boxes,                             # CRAFT detected line boxes in global coordinates
+                                    line_texts,                             # Recognized text as labels
+                                    #color_map={"text_line": (10, 10, 10)},  # Blue color for text lines
+                                    #label_position = "under"
+                                )
+                            else:
+                                final_viz = base_image
+
+                            recognition_path = os.path.join(recognition_dir, f"frame_{i+1:03d}.jpg")
+                            save_image(final_viz, recognition_path)
                     except Exception as e:
                         self.logger.warning(f"Failed to save recognition visualization: {e}")
-                
+
             except Exception as e:
                 self.logger.error(f"Error in recognition step for frame {i+1}: {e}")
-                # Continue with next frame
-        
+
         self.logger.info(f"Recognition completed for {len(all_frames)} frames")
         
         # STEP 4: OCR CORRECTION (if enabled)
@@ -819,7 +916,10 @@ class ComicProcessor:
                 
                 # Insert corrected texts back into the blocks
                 for i, block in enumerate(blocks_needing_correction):
-                    block["corrected_text"] = corrected_texts[i]
+                    if i < len(corrected_texts):
+                        block["corrected_text"] = corrected_texts[i]
+                    else:
+                        block["corrected_text"] = block.get("text", "")
             else:
                 self.logger.info("No texts need correction")
         elif not self.dual_ocr and self.use_correction:
@@ -901,26 +1001,33 @@ class ComicProcessor:
                     
                     # Insert translated texts back into the blocks
                     for i, block in enumerate(blocks_to_translate):
-                        block["translated_text"] = translated_texts[i]
+                        if i < len(translated_texts):
+                            block["translated_text"] = translated_texts[i]
+                        else:
+                            block["translated_text"] = ""
             
             # Save translation visualization if requested
             if output_dir and save_translation:
+                translation_dir = os.path.join(output_dir, "translation")
+                
                 for i, frame in enumerate(all_frames):
                     try:
                         image_path = frame["image_path"]
                         image = load_image(image_path)
-                        frame_output_dir = os.path.join(output_dir, f"frame_{i+1:03d}")
                         
-                        boxes = [np.array(block["box"]) for block in frame["blocks"]]
-                        
-                        translation_labels = [
-                            f"{block['id']}: {block.get('translated_text', '')}"
-                            for block in frame["blocks"]
-                        ]
-                        
-                        translation_viz = draw_boxes_with_labels(image.copy(), boxes, translation_labels)
-                        translation_viz_path = os.path.join(frame_output_dir, "translation.jpg")
-                        save_image(translation_viz, translation_viz_path)
+                        if image is not None:
+                            boxes = [np.array(block["box"]) for block in frame["blocks"]]
+                            
+                            translation_labels = [
+                                f"{block['id']}: {block.get('translated_text', '')}"
+                                for block in frame["blocks"]
+                            ]
+                            
+                            translation_viz = draw_boxes_with_labels(image.copy(), boxes, translation_labels)
+                            translation_viz_path = os.path.join(translation_dir, f"frame_{i+1:03d}.jpg")
+                            save_image(translation_viz, translation_viz_path)
+                        else:
+                            self.logger.warning(f"Could not load image for visualization: {image_path}")
                     except Exception as e:
                         self.logger.warning(f"Failed to save translation visualization for frame {i+1}: {e}")
         else:
@@ -965,3 +1072,94 @@ class ComicProcessor:
             self._save_chapter_outputs(results, output_dir)
         
         return results
+
+    def _save_chapter_outputs(self, results: Dict[str, Any], output_dir: str) -> None:
+        """
+        Save chapter processing results to disk in a structured format.
+        
+        Args:
+            results: Processing results dictionary
+            output_dir: Base output directory
+        """
+        self.logger.info(f"Saving chapter processing results to {output_dir}")
+        import json
+        
+        # Save summary JSON
+        summary_path = os.path.join(output_dir, "chapter_summary.json")
+        with open(summary_path, 'w', encoding='utf-8') as f:
+            # Create a copy without the full blocks/frames data
+            summary = {
+                "chapter_path": results["chapter_path"],
+                "processed_time": results["processed_time"],
+                "num_frames": results["num_frames"],
+                "num_blocks": results["num_blocks"],
+                "timing": results["timing"],
+                "config": results["config"]
+            }
+            json.dump(summary, f, ensure_ascii=False, indent=2)
+        
+        # Save full results JSON
+        full_results_path = os.path.join(output_dir, "chapter_full_results.json")
+        with open(full_results_path, 'w', encoding='utf-8') as f:
+            import json
+            
+            class NumpyEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    if isinstance(obj, np.ndarray):
+                        return obj.tolist()
+                    return json.JSONEncoder.default(self, obj)
+            
+            json.dump(results, f, cls=NumpyEncoder, ensure_ascii=False, indent=2)
+        
+        # Save recognized text to TXT file
+        text_path = os.path.join(output_dir, "recognized_text.txt")
+        with open(text_path, 'w', encoding='utf-8') as f:
+            for frame in results["frames"]:
+                frame_id = frame["id"]
+                source_image = frame.get("source_image", "unknown_source")
+                if isinstance(source_image, str):
+                    source_name = os.path.basename(source_image)
+                else:
+                    source_name = f"frame_{frame_id}"
+                    
+                f.write(f"Frame {frame_id} (Source: {source_name}):\n")
+                f.write("-" * 50 + "\n")
+                
+                for block in frame["blocks"]:
+                    block_id = block["id"]
+                    class_name = block["class_name"]
+                    text = block.get("corrected_text", "") or block.get("text", "")
+                    
+                    if text.strip():
+                        f.write(f"Block {block_id} ({class_name}):\n")
+                        f.write(f"{text}\n\n")
+                
+                f.write("\n\n")
+        
+        # Save translated text if available
+        if any(block.get("translated_text") for frame in results["frames"] for block in frame["blocks"]):
+            translation_path = os.path.join(output_dir, "translated_text.txt")
+            with open(translation_path, 'w', encoding='utf-8') as f:
+                for frame in results["frames"]:
+                    frame_id = frame["id"]
+                    source_image = frame.get("source_image", "unknown_source")
+                    if isinstance(source_image, str):
+                        source_name = os.path.basename(source_image)
+                    else:
+                        source_name = f"frame_{frame_id}"
+                        
+                    f.write(f"Frame {frame_id} (Source: {source_name}):\n")
+                    f.write("-" * 50 + "\n")
+                    
+                    for block in frame["blocks"]:
+                        block_id = block["id"]
+                        class_name = block["class_name"]
+                        translated_text = block.get("translated_text", "")
+                        
+                        if translated_text.strip():
+                            f.write(f"Block {block_id} ({class_name}):\n")
+                            f.write(f"{translated_text}\n\n")
+                    
+                    f.write("\n\n")
+        
+        self.logger.info(f"Saved chapter processing results to {output_dir}")

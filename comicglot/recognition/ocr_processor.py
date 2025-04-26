@@ -125,7 +125,7 @@ class OCRProcessor:
     def detect_text_lines(
         self, 
         image: np.ndarray, 
-        min_size: int = 20,
+        min_size: int = 40,
         paragraph_mode: bool = False
     ) -> List[Tuple[int, int, int, int]]:
         """
@@ -275,7 +275,7 @@ class OCRProcessor:
     def perform_detection_and_recognition(
         self,
         image: Union[str, np.ndarray],
-        min_block_size: int = 20,
+        min_block_size: int = 40,
         paragraph_mode: bool = False,
         detection: bool = True
     ) -> List[Tuple[Tuple[int, int, int, int], str]]:
@@ -338,32 +338,32 @@ class OCRProcessor:
             'spiked_bubble': True,
             'system_bubble': True,
             'think_bubble': True,
-            'standalone_text': False,
+            'standalone_text': True,
             'sfx_sound': False,
             'hexagon_bubble': True,
             'square_bubble': True,
             'wiggle_bubble': True,
             'title_panel': False,
-            'background_text': False
+            'background_text': True
         }
 
         if detect_lines is None:
             # Use class-specific default
             detect_lines = detection_settings.get(block_class, True)
 
-        recognition_settings = {
-            'system_bubble': {'paragraph_mode': True},
-            'sfx_sound': {'recognition_model': 'easyocr'},  # EasyOCR might be better for SFX
-            'title_panel': {'min_block_size': 30},  # Larger min size for titles
-        }
+        # recognition_settings = {
+        #     'system_bubble': {'paragraph_mode': True},
+        #     'sfx_sound': {'recognition_model': 'easyocr'},  # EasyOCR might be better for SFX
+        #     'title_panel': {'min_block_size': 30},  # Larger min size for titles
+        # }
 
-        process_kwargs = recognition_settings.get(block_class, {})
-        process_kwargs.update(kwargs)
+        # process_kwargs = recognition_settings.get(block_class, {})
+        # process_kwargs.update(kwargs)
 
         return self.perform_detection_and_recognition(
             image, 
             detection=detect_lines,
-            **process_kwargs
+            **kwargs # process_kwargs
         )
     
     def process_image_with_blocks(
@@ -396,16 +396,37 @@ class OCRProcessor:
                 x_min, y_min, x_max, y_max = map(int, block['box'])
                 cropped_block = image[y_min:y_max, x_min:x_max].copy()
 
-                if apply_separators and block.get('separator') is not None:
-                    from comicglot.utils.spatial_processor import apply_separator_mask
-                    separator_line = np.array(block['separator'])
+                if apply_separators and block.get('separators') is not None:
+                    from comicglot.utils.spatial_processor import apply_separator_masks
+                    # separator_line = np.array(block['separator'])
 
-                    separator_line[0][0] -= x_min
-                    separator_line[0][1] -= y_min
-                    separator_line[1][0] -= x_min
-                    separator_line[1][1] -= y_min
+                    # separator_line[0][0] -= x_min
+                    # separator_line[0][1] -= y_min
+                    # separator_line[1][0] -= x_min
+                    # separator_line[1][1] -= y_min
+
+                    local_separators = []
+                    for sep in block['separators']:
+                        local_p1 = np.array([sep[0][0] - x_min, sep[0][1] - y_min], dtype=np.int32)
+                        local_p2 = np.array([sep[1][0] - x_min, sep[1][1] - y_min], dtype=np.int32)
+                        local_sep = np.array([local_p1, local_p2])
+                        local_separators.append(local_sep)
                     
-                    cropped_block = apply_separator_mask(cropped_block, separator_line)
+                    cropped_block = apply_separator_masks(cropped_block, local_separators)
+
+                # ocr_results = self.process_text_block(
+                #     cropped_block,
+                #     block['class_name']
+                # )
+
+                # block_text = " ".join([text for _, text in ocr_results]).strip()
+
+                # block_result = block.copy()
+                # block_result['text'] = block_text
+                # block_result['text_lines'] = [
+                #     {'box': box, 'text': text}
+                #     for box, text in ocr_results
+                # ]
 
                 ocr_results = self.process_text_block(
                     cropped_block,
@@ -413,12 +434,23 @@ class OCRProcessor:
                 )
 
                 block_text = " ".join([text for _, text in ocr_results]).strip()
+                
+                global_boxes = []
+                for local_box, text in ocr_results:
+                    local_x1, local_y1, local_x2, local_y2 = local_box
+                    global_box = (
+                        local_x1 + x_min,  # Add crop's left position
+                        local_y1 + y_min,  # Add crop's top position
+                        local_x2 + x_min,  # Add crop's left position
+                        local_y2 + y_min   # Add crop's top position
+                    )
+                    global_boxes.append((global_box, text))
 
                 block_result = block.copy()
                 block_result['text'] = block_text
                 block_result['text_lines'] = [
                     {'box': box, 'text': text}
-                    for box, text in ocr_results
+                    for box, text in global_boxes
                 ]
                 
                 results.append(block_result)

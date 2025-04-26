@@ -85,17 +85,17 @@ def draw_boxes_with_labels(
     if color_map is None:
         color_map = {
             "speech_bubble": (255, 0, 0),       # Red
-            "cloud_bubble": (255, 192, 203),    # Pink
+            "cloud_bubble": (219, 106, 140),    # Pink
             "scream_bubble": (255, 69, 0),      # Orange-Red
             "spiked_bubble": (139, 0, 0),       # Dark Red
-            "system_bubble": (0, 0, 255),       # Blue
-            "think_bubble": (0, 191, 255),      # Deep Sky Blue
-            "standalone_text": (0, 255, 0),     # Green
-            "sfx_sound": (255, 215, 0),         # Gold
-            "hexagon_bubble": (148, 0, 211),    # Dark Violet
+            "system_bubble": (45, 75, 255),     # Blue
+            "think_bubble": (0, 160, 255),      # Deep Sky Blue
+            "standalone_text": (20, 170, 50),   # Green
+            "sfx_sound": (170, 127, 46),         # Gold
+            "hexagon_bubble": (145, 20, 160),   # Dark Violet
             "square_bubble": (75, 0, 130),      # Indigo
-            "wiggle_bubble": (0, 255, 255),     # Cyan
-            "title_panel": (255, 165, 0),       # Orange
+            "wiggle_bubble": (0, 105, 140),     # Cyan
+            "title_panel": (220, 130, 30),      # Orange
             "background_text": (128, 128, 128)  # Gray
         }
 
@@ -113,7 +113,8 @@ def draw_boxes_with_labels(
         if class_names and (class_names[i] in color_map):
             color_rgb = color_map[class_names[i]]
         else:
-            color_rgb = (0, 255, 0)
+            # color_rgb = (20, 170, 50)
+            color_rgb = (40, 40, 40)
 
         draw.rectangle([x_min, y_min, x_max, y_max], outline=color_rgb, width=line_thickness)
 
@@ -122,7 +123,7 @@ def draw_boxes_with_labels(
         label_height = label_bbox[3] - label_bbox[1] + 5  # Correcting text spot due to font
 
         label_position = (
-            x_min, 
+            x_min,  
             y_min - label_height - 2 if y_min - label_height > 0 else y_min + 2
         )
 
@@ -137,6 +138,7 @@ def draw_boxes_with_labels(
         draw.text(
             (label_position[0], label_position[1] - 5), 
             label, 
+            # fill=(0, 0, 0),  # Black text 
             fill=(255, 255, 255),  # White text
             font=font
         )
@@ -148,7 +150,7 @@ def visualize_separator_lines(
     blocks: List[TextBlock],
     separator_lines_lists: List[List[np.ndarray]],
     line_thickness: int = 2,
-    line_color: Tuple[int, int, int] = (0, 255, 255)  # Yellow
+    line_color: Tuple[int, int, int] = (0, 191, 255)  # Yellow
 ) -> np.ndarray:
     """
     Visualize separator lines between overlapping text blocks.
