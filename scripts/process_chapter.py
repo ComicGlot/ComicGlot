@@ -325,7 +325,7 @@ def run_direct():
     output_path = os.path.abspath(os.getenv("OUTPUT_FOLDER", "./data/output/"))
     detection_model = os.getenv("DETECTION_MODEL", "yolo")
     recognition_model = os.getenv("RECOGNITION_MODEL", "trocr-korean")
-    translator = os.getenv("TRANSLATOR")
+    translator = os.getenv("TRANSLATOR", "claude")
     source_lang = os.getenv("SOURCE_LANG", "ko")
     target_lang = os.getenv("TARGET_LANG", "en")
     detection_model_path = os.getenv("YOLO_MODEL_PATH" if detection_model == "yolo" else "DETR_MODEL_PATH")

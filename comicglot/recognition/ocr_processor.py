@@ -338,7 +338,7 @@ class OCRProcessor:
             'spiked_bubble': True,
             'system_bubble': True,
             'think_bubble': True,
-            'standalone_text': True,
+            'standalone_text': False,
             'sfx_sound': False,
             'hexagon_bubble': True,
             'square_bubble': True,
@@ -394,6 +394,25 @@ class OCRProcessor:
         for block in blocks:
             try:
                 x_min, y_min, x_max, y_max = map(int, block['box'])
+
+                # ======================================== ???/
+                h, w = image.shape[:2]
+                x_min = max(0, min(w-1, x_min))
+                y_min = max(0, min(h-1, y_min)) 
+                x_max = max(x_min+1, min(w, x_max))
+                y_max = max(y_min+1, min(h, y_max))
+                
+                if x_max <= x_min or y_max <= y_min:
+                    self.logger.warning(f"Invalid box dimensions for block {block.get('id', '?')}")
+                    block_result = block.copy()
+                    block_result['text'] = ""
+                    block_result['text_lines'] = []
+                    block_result['error'] = "Invalid box dimensions"
+                    results.append(block_result)
+                    continue
+
+                # ========================================
+
                 cropped_block = image[y_min:y_max, x_min:x_max].copy()
 
                 if apply_separators and block.get('separators') is not None:
