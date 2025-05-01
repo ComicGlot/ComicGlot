@@ -13,7 +13,6 @@ from typing import Dict, List, Optional, Union, Any
 import asyncio
 from dotenv import load_dotenv
 
-# Try to import API clients - install with pip if missing
 try:
     from anthropic import Anthropic
 except ImportError:
@@ -202,53 +201,88 @@ class LLMProcessor:
             )
         finally:
             loop.close()
-    
+
+
     async def batch_process_with_claude(
         self,
         prompts: List[str],
-        # system_prompt: Optional[str] = None,
         model: Optional[str] = None,
         max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        concurrency_limit: int = 5
+        temperature: Optional[float] = None
     ) -> List[str]:
         """
-        Process a batch of prompts with Claude API with concurrency control.
-        
-        Args:
-            prompts: List of prompts to send to Claude
-            system_prompt: Optional system prompt to guide Claude's behavior
-            model: Model name (overrides instance default if provided)
-            max_tokens: Maximum tokens to generate (overrides instance default if provided)
-            temperature: Temperature setting (overrides instance default if provided)
-            concurrency_limit: Maximum number of concurrent requests
-            
-        Returns:
-            List of Claude's responses as strings
+        Process a batch of prompts with Claude API using Anthropic's Message Batches API
+        for true concurrent processing.
         """
-        if not self.anthropic_client:
-            raise RuntimeError("Anthropic client not available. Check your API key.")
+        resolved_model = self._resolve_model_name(model) if model else self.model_name
+        max_tokens_to_use = max_tokens or self.max_tokens
+        temperature_to_use = temperature or self.temperature
 
-        if model:
-            model = self._resolve_model_name(model)
-        
-        async def process_single(prompt):
-            return await self.process_with_claude(
-                prompt=prompt,
-                # system_prompt=system_prompt,
-                model=model,
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
+        try:
+            batch_requests = []
+            for i, prompt in enumerate(prompts):
+                batch_requests.append({
+                    "custom_id": f"request_{i}",
+                    "params": {
+                        "model": resolved_model,
+                        "max_tokens": max_tokens_to_use,
+                        "temperature": temperature_to_use,
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ]
+                    }
+                })
+                
+            batch = self.anthropic_client.messages.batches.create(requests=batch_requests)
+                
+            max_wait_time = 1200  # 20 minutes
+            wait_interval = 10  # seconds
+            total_wait_time = 0
+            
+            results_dict = {}
 
-        semaphore = asyncio.Semaphore(concurrency_limit)
-        
-        async def bounded_process(prompt):
-            async with semaphore:
-                return await process_single(prompt)
+            while total_wait_time < max_wait_time:
+                message_batch = self.anthropic_client.messages.batches.retrieve(batch.id)
 
-        tasks = [bounded_process(prompt) for prompt in prompts]
-        return await asyncio.gather(*tasks)
+                if message_batch.processing_status == "ended":
+                    logger.info(f"Batch {batch.id} processing completed")
+
+                    for result in self.anthropic_client.messages.batches.results(batch.id):
+                        custom_id = result.custom_id
+                        index = int(custom_id.split('_')[1])
+
+                        if result.result.type == "succeeded":
+                            content = result.result.message.content[0].text
+                            results_dict[index] = content
+                            logger.debug(f"Success! {custom_id}")
+                        elif result.result.type == "errored":
+                            error_msg = result.result.error
+                            logger.warning(f"Request {custom_id} failed: {error_msg}")
+                            results_dict[index] = ""
+                        elif result.result.type in ["expired", "canceled"]:
+                            logger.warning(f"Request {custom_id} {result.result.type}")
+                            results_dict[index] = ""
+
+                    break
+
+                await asyncio.sleep(wait_interval)
+                total_wait_time += wait_interval
+                logger.debug(f"Waiting for batch to complete... {total_wait_time}s elapsed")
+
+            if total_wait_time >= max_wait_time:
+                logger.warning(f"Batch processing timed out after {total_wait_time}s")
+                return await self._fallback_batch_process(prompts, resolved_model, resolved_max_tokens, resolved_temperature)
+
+            ordered_results = []
+            for i in range(len(prompts)):
+                ordered_results.append(results_dict.get(i, ""))
+            
+            return ordered_results
+            
+        except Exception as e:
+            logger.error(f"Error in batch processing: {str(e)}")
+            # Fallback to regular processing
+            return await self._fallback_batch_process(prompts, resolved_model, resolved_max_tokens, resolved_temperature)
     
     def batch_process_with_claude_sync(
         self,
@@ -319,3 +353,37 @@ class LLMProcessor:
             'cheap': 'claude-3-haiku',              # When cost is most important
         }
         return recommendations.get(task.lower(), 'claude-balanced')
+
+    async def _fallback_batch_process(
+        self,
+        prompts: List[str],
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        concurrency_limit: int = 10
+    ) -> List[str]:
+        """
+        Fallback method to process prompts with regular concurrency when batch API fails.
+        """
+        logger.warning("Falling back to regular concurrent processing")
+        
+        async def process_single(prompt):
+            try:
+                return await self.process_with_claude(
+                    prompt=prompt,
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature
+                )
+            except Exception as e:
+                logger.error(f"Error in single prompt processing: {str(e)}")
+                return ""
+
+        semaphore = asyncio.Semaphore(concurrency_limit)
+        
+        async def bounded_process(prompt):
+            async with semaphore:
+                return await process_single(prompt)
+
+        tasks = [bounded_process(prompt) for prompt in prompts]
+        return await asyncio.gather(*tasks)

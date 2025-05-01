@@ -31,7 +31,7 @@ def perform_img_ocr(image_path, lang='kor'):
     config = '--psm 12 --oem 3'
     extracted_text = pytesseract.image_to_string(preprocessed_image, lang=lang, config=config)
     
-    #print("Extracted Text:\n", extracted_text)
+    print("Extracted Text:\n", extracted_text)
 
     parsed_text = extracted_text.strip().replace("\n", "").replace("|", "")
     print(parsed_text)
@@ -72,12 +72,13 @@ def perform_fldr_ocr(folder, lang='kor'):
 
             extracted_text = pytesseract.image_to_string(preprocessed_image, lang=lang, config=config)
             
-            #print("Extracted Text:\n", extracted_text)
+            print("Extracted Text:\n", extracted_text)
 
             parsed_text = extracted_text.strip().replace("\n", "").replace("|", "")
             print(parsed_text)
             cv2.imwrite('preprocessed_image.png', preprocessed_image)  # Save for debugging
 
 if __name__ == "__main__":
-    image_path = r"E:/Projects/Python/Manhua_Scanner/tesseract_OCR/test/"
-    perform_fldr_ocr(image_path, lang='kor')
+    image_path = r"E:/Projects/Python/Manhua_Scanner/data/bubbles/test2.jpg"
+    perform_img_ocr(image_path, lang='kor')
+    #perform_fldr_ocr(image_path, lang='kor')

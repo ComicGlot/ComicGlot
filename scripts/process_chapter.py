@@ -1,13 +1,8 @@
-#!/usr/bin/env python3
 """
 Comic processing script for ComicGlot.
 
 This script provides a command-line interface for the full ComicGlot pipeline,
 including detection, recognition, and translation of text in comic images.
-
-Example usage:
-    python process_chapter.py --input path/to/image.jpg --output path/to/output
-    python process_chapter.py --input path/to/chapter --output path/to/output --batch
 """
 
 import os
@@ -17,6 +12,7 @@ import logging
 import json
 from typing import Dict, Any
 from dotenv import load_dotenv
+import asyncio
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
@@ -32,7 +28,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def process_single(
+async def process_single(
     input_path: str,
     output_path: str,
     detection_model: str,
@@ -103,7 +99,7 @@ def process_single(
         )
     else:
         logger.info(f"Processing chapter: {input_path}")
-        results = processor.process_chapter(
+        results = await processor.process_chapter(
             input_path, 
             output_path, 
             save_segments=save_segments,
@@ -115,7 +111,7 @@ def process_single(
     
     return results
 
-def process_batch(
+async def process_batch(
     input_path: str,
     output_path: str,
     detection_model: str,
@@ -177,7 +173,7 @@ def process_batch(
     )
     
     logger.info(f"Processing chapters in batch mode: {input_path}")
-    results = processor.batch_process_chapters(
+    results = await processor.batch_process_chapters(
         input_path, 
         output_path, 
         save_segments=save_segments,
@@ -189,7 +185,7 @@ def process_batch(
     
     return results
 
-def run_with_args():
+async def run_with_args():
     """Run the script with command-line arguments."""
     parser = argparse.ArgumentParser(description="Process comic images with ComicGlot")
     
@@ -265,7 +261,7 @@ def run_with_args():
     
     try:
         if args.batch:
-            process_batch(
+            await process_batch(
                 input_path=args.input,
                 output_path=output_path,
                 detection_model=args.detection,
@@ -288,7 +284,7 @@ def run_with_args():
             logger.info("Successfully processed chapters in batch mode")
             
         else:
-            process_single(
+            await process_single(
                 input_path=args.input,
                 output_path=output_path,
                 detection_model=args.detection,
@@ -318,7 +314,7 @@ def run_with_args():
     
     return 0
 
-def run_direct():
+async def run_direct():
     """Run the script with hard-coded parameters from environment variables."""
     # Load parameters from environment variables
     input_path = os.path.abspath(os.getenv("INPUT_FOLDER", "./data/chapters/"))
@@ -368,7 +364,7 @@ def run_direct():
     try:
         if is_batch_mode:
             logger.info("Running in batch mode")
-            process_batch(
+            await process_batch(
                 input_path=input_path,
                 output_path=output_path,
                 detection_model=detection_model,
@@ -390,7 +386,7 @@ def run_direct():
             )
         else:
             logger.info("Running in single mode")
-            process_single(
+            await process_single(
                 input_path=input_path,
                 output_path=output_path,
                 detection_model=detection_model,
@@ -420,14 +416,14 @@ def run_direct():
         traceback.print_exc()
         return 1
 
-def main():
+async def main():
     """Entry point function that determines how to run the script."""
     # Check if we're running with command-line arguments
     if len(sys.argv) > 1:
-        return run_with_args()
+        return await run_with_args()
     else:
         # No command line args, use hard-coded values
-        return run_direct()
+        return await run_direct()
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(asyncio.run(main()))

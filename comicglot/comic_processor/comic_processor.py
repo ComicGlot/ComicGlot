@@ -186,7 +186,7 @@ class ComicProcessor:
         elif model_type.lower() == "trocr-base":
             detection_model = "craft"
             recognition_model = "trocr"
-            model_path = None  # Use default
+            model_path = None
             
         elif model_type.lower() == "easyocr":
             detection_model = "craft"
@@ -296,32 +296,26 @@ class ComicProcessor:
         ocr_results = self.recognizer.process_image_with_blocks(
             image_path, processed_blocks, apply_separators=self.apply_separators
         )
-        
-        # If dual OCR is enabled, perform secondary recognition
+
         if self.dual_ocr and self.secondary_recognizer:
             self.logger.info("Running secondary OCR for comparison")
             secondary_ocr_results = self.secondary_recognizer.process_image_with_blocks(
                 image_path, processed_blocks, apply_separators=self.apply_separators
             )
-            
-            # Merge the OCR results
+
             for i, (primary_result, secondary_result) in enumerate(zip(ocr_results, secondary_ocr_results)):
                 ocr_results[i]["secondary_text"] = secondary_result["text"]
         
         correction_time = time.time()
-
-        # Translation will be done in batch at the chapter level
         translate_time = time.time()
-        
-        # Calculate timing
+
         timing = {
             "detection": spatial_time - detect_time,
             "spatial_processing": ocr_time - spatial_time,
             "recognition": correction_time - ocr_time,
             "total": translate_time - start_time
         }
-        
-        # Prepare final results
+
         results = {
             "image_path": image_path,
             "processed_time": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -367,11 +361,10 @@ class ComicProcessor:
             
         if not text1 or not text2:
             return False
-            
-        # Normalize whitespace, line breaks, and common punctuation
+
         def normalize(text):
             text = text.strip()
-            text = ' '.join(text.split())  # Normalize whitespace
+            text = ' '.join(text.split())
             text = text.replace('\n', ' ').replace('\r', ' ')
             for char in ',.;:!?':
                 text = text.replace(char, '')
@@ -422,8 +415,7 @@ class ComicProcessor:
                     return json.JSONEncoder.default(self, obj)
             
             json.dump(results, f, cls=NumpyEncoder, ensure_ascii=False, indent=2)
-                
-        # Save visualizations if requested
+
         if save_detection or save_recognition or save_translation:
             try:
                 image = load_image(image_path)
@@ -435,8 +427,7 @@ class ComicProcessor:
                 classes = [block["class_name"] for block in results["blocks"]]
                 confidences = [block["confidence"] for block in results["blocks"]]
                 ids = [block["id"] for block in results["blocks"]]
-                
-                # Save detection visualization
+
                 if save_detection:
                     labels = [
                         f"{i+1}: {classes[i]} ({confidences[i]:.2f})"
@@ -447,8 +438,7 @@ class ComicProcessor:
                     detection_viz_path = os.path.join(output_path, f"{base_name}_detection.jpg")
                     save_image(detection_viz, detection_viz_path)
                     self.logger.info(f"Saved detection visualization to {detection_viz_path}")
-                
-                # Save recognition visualization
+
                 if save_recognition:
                     text_labels = [
                         f"{i+1}: {block.get('text', '')}"
@@ -459,8 +449,7 @@ class ComicProcessor:
                     text_viz_path = os.path.join(output_path, f"{base_name}_text.jpg")
                     save_image(text_viz, text_viz_path)
                     self.logger.info(f"Saved text visualization to {text_viz_path}")
-                
-                # Save translation visualization if available and requested
+
                 if save_translation and any(block.get("translated_text") for block in results["blocks"]):
                     translation_labels = [
                         f"{i+1}: {block.get('translated_text', '')}"
@@ -475,7 +464,7 @@ class ComicProcessor:
             except Exception as e:
                 self.logger.warning(f"Failed to create visualizations: {e}")
     
-    def process_chapter(
+    async def process_chapter(
         self,
         input_dir: str,
         output_dir: Optional[str] = None,
@@ -535,7 +524,7 @@ class ComicProcessor:
             if file.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
                 image_files.append(os.path.join(input_dir, file))
         
-        image_files = natsorted(image_files)  # Ensure consistent order
+        image_files = natsorted(image_files)
         
         if not image_files:
             self.logger.error(f"No image files found in: {input_dir}")
@@ -545,7 +534,7 @@ class ComicProcessor:
         
         segments = []
         segment_paths = []
-        segment_sources = []  # Track which original image each segment comes from
+        segment_sources = []
         
         if self.use_segmentation:
             self.logger.info("Segmenting long comics")
@@ -553,8 +542,7 @@ class ComicProcessor:
                 segments_dir = None
                 if output_dir and save_segments:
                     segments_dir = os.path.join(output_dir, "segments")
-                
-                # Call segment_by_seam_carving directly on the input directory
+
                 segment_results = segment_by_seam_carving(
                     input_path=input_dir,
                     min_height=self.min_seg_height,
@@ -562,19 +550,16 @@ class ComicProcessor:
                     output_path=segments_dir,
                     resize=True
                 )
-                
-                # Process the results
+
                 segments = segment_results['segments']
                 
-                # Set segment paths if segments are saved
                 if save_segments and segments_dir:
                     for i in range(len(segments)):
                         segment_filename = f"segment_{i+1:03d}.png"
                         segment_path = os.path.join(segments_dir, segment_filename)
                         segment_paths.append(segment_path)
-                        
-                        # Track the source image (approximately)
-                        # In a real scenario, we might need a better mapping
+
+                        # Might need a better mapping
                         segment_sources.append(image_files[min(i, len(image_files)-1)])
                 else:
                     segment_paths = [None] * len(segments)
@@ -594,7 +579,7 @@ class ComicProcessor:
         
         if not self.use_segmentation or not segments:
             self.logger.info("Using original images (no segmentation)")
-            segments = []  # Clear any partially created segments
+            segments = [] 
             segment_paths = image_files
             segment_sources = image_files
         
@@ -604,15 +589,13 @@ class ComicProcessor:
         
         all_blocks = []
         all_frames = []
-        frame_to_image_map = {}  # Maps frame index to original image path
+        frame_to_image_map = {}
         
         for i, image_path in enumerate(segment_paths):
             try:
                 self.logger.info(f"Detecting text blocks in frame {i+1}/{len(segment_paths)}")
-                
-                # For numpy array segments without saved path, we need to use the segment directly
+
                 if self.use_segmentation and segments and not image_path:
-                    # Create a temporary file to use the detector
                     import tempfile
                     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
                         temp_path = temp_file.name
@@ -650,8 +633,7 @@ class ComicProcessor:
                         "source_image": segment_sources[i] if i < len(segment_sources) else None
                     }
                     processed_blocks.append(block_dict)
-                
-                # Save detection visualization if requested
+
                 if output_dir and save_detection:
                     try:
                         detection_dir = os.path.join(output_dir, "detection")
@@ -682,21 +664,18 @@ class ComicProcessor:
                                     )
                                     separators = [np.array(sep) for sep in block_dict["separators"]]
                                     detection_viz = visualize_separator_lines(detection_viz, [block], [separators])
-                            
-                            # Use frame number in the filename
+
                             detection_viz_path = os.path.join(detection_dir, f"frame_{i+1:03d}.jpg")
                             save_image(detection_viz, detection_viz_path)
                     except Exception as e:
                         self.logger.warning(f"Failed to save detection visualization: {e}")
-                
-                # Clean up temporary file if created
+
                 if temp_created:
                     try:
                         os.unlink(image_path)
                     except:
                         pass
-                
-                # Add blocks and frame info to tracking lists
+
                 all_blocks.extend(processed_blocks)
                 
                 frame_info = {
@@ -727,11 +706,9 @@ class ComicProcessor:
             try:
                 image_path = frame["image_path"]
                 self.logger.info(f"Recognizing text in frame {i+1}/{len(all_frames)}")
-                
-                # Get blocks for this frame
+
                 frame_blocks = frame["blocks"]
-                
-                # Skip if no blocks in this frame
+
                 if not frame_blocks:
                     continue
                 
@@ -739,8 +716,7 @@ class ComicProcessor:
                 ocr_results = self.recognizer.process_image_with_blocks(
                     image_path, frame_blocks, apply_separators=self.apply_separators
                 )
-                
-                # Save crops if requested
+
                 if output_dir and save_crops:
                     try:
                         image = load_image(image_path)
@@ -764,8 +740,7 @@ class ComicProcessor:
                                         
                                         from comicglot.utils.spatial_processor import apply_separator_masks
                                         crop = apply_separator_masks(crop, local_separators)
-                                    
-                                    # Use block ID and class in the filename
+
                                     crop_path = os.path.join(crops_dir, f"frame_{i+1:03d}_block_{block['id']:03d}_{block['class_name']}.jpg")
                                     save_image(crop, crop_path)
                                 except Exception as e:
@@ -781,25 +756,21 @@ class ComicProcessor:
                     secondary_ocr_results = self.secondary_recognizer.process_image_with_blocks(
                         image_path, frame_blocks, apply_separators=self.apply_separators
                     )
-                    
-                    # Merge the OCR results
+
                     for j, (primary_result, secondary_result) in enumerate(zip(ocr_results, secondary_ocr_results)):
                         ocr_results[j]["secondary_text"] = secondary_result["text"]
-                
-                # Update the blocks in both the frame and all_blocks
+
                 for j, ocr_result in enumerate(ocr_results):
                     block_id = frame_blocks[j]["id"]
-                    
-                    # Find the index in all_blocks
+
                     all_block_idx = next((idx for idx, b in enumerate(all_blocks) if b["id"] == block_id), None)
                     
                     if all_block_idx is not None:
                         all_blocks[all_block_idx].update(ocr_result)
-                    
-                    # Update in frame blocks too
+
                     frame_blocks[j].update(ocr_result)
 
-                if output_dir and save_recognition:
+                if output_dir and save_recognition and not (self.use_correction and self.dual_ocr):
                     try:
                         recognition_dir = os.path.join(output_dir, "recognition")
                         os.makedirs(recognition_dir, exist_ok=True)
@@ -841,47 +812,25 @@ class ComicProcessor:
                                 base_image = visualize_separator_lines(base_image, text_blocks, separator_lines_lists)
                         
                         if base_image is not None:
-                            # Now draw CRAFT detected lines with their text
+                            # Draw CRAFT detected lines with their text
                             line_boxes = []
                             line_texts = []
                             
                             for block in frame_blocks:
-                                # Get the bubble coordinates
+
                                 x_min, y_min, x_max, y_max = map(int, block["box"])
                                 
                                 if "text_lines" in block and block["text_lines"]:
                                     for line in block["text_lines"]:
                                         if "box" in line and "text" in line:
-                                            # # Transform local line coordinates to global image coordinates
-                                            # local_box = line["box"]
-                                            
-                                            # # Check if these are already global coordinates
-                                            # if len(local_box) == 4 and isinstance(local_box[0], (int, float)):
-                                            #     # Already in the right format - these are likely global coordinates
-                                            #     global_box = np.array(local_box)
-                                            # else:
-                                            #     # Convert local to global coordinates by adding bubble's top-left corner
-                                            #     local_x1, local_y1, local_x2, local_y2 = local_box
-                                            #     global_box = np.array([
-                                            #         local_x1 + x_min, 
-                                            #         local_y1 + y_min,
-                                            #         local_x2 + x_min, 
-                                            #         local_y2 + y_min
-                                            #     ])
-                                            # 
-                                            # line_boxes.append(global_box)
-                                            # line_texts.append(line["text"])
                                             line_boxes.append(np.array(line["box"]))
                                             line_texts.append(line["text"])
-                            
-                            # Add text lines to the visualization
+
                             if line_boxes:
                                 final_viz = draw_boxes_with_labels(
                                     base_image,                             # Use detection visualization as base
                                     line_boxes,                             # CRAFT detected line boxes in global coordinates
                                     line_texts,                             # Recognized text as labels
-                                    #color_map={"text_line": (10, 10, 10)},  # Blue color for text lines
-                                    #label_position = "under"
                                 )
                             else:
                                 final_viz = base_image
@@ -911,24 +860,126 @@ class ComicProcessor:
                 # Skip correction if texts are identical or too similar
                 if self._are_texts_equivalent(primary_text, secondary_text):
                     block["corrected_text"] = primary_text
+                    self.logger.debug(f"Block {block['id']}: Texts are equivalent, skipping correction")
+                elif not primary_text or not secondary_text:
+                    # Skip if either OCR result is empty
+                    block["corrected_text"] = primary_text or secondary_text
+                    self.logger.debug(f"Block {block['id']}: One OCR result is empty, using non-empty result")
                 else:
+                    # Both texts have content and they're different - needs correction
                     batch_correction_inputs.append([primary_text, secondary_text])
                     blocks_needing_correction.append(block)
+                    self.logger.debug(f"Block {block['id']}: Texts differ, adding to correction batch")
             
             if batch_correction_inputs:
                 self.logger.info(f"Sending {len(batch_correction_inputs)} blocks for OCR correction")
-                corrected_texts = self.corrector.batch_correct_texts(
+
+                if len(batch_correction_inputs) > 0:
+                    sample_count = min(3, len(batch_correction_inputs))
+                    for i in range(sample_count):
+                        self.logger.debug(f"Correction sample {i+1}:")
+                        self.logger.debug(f"  OCR1: {batch_correction_inputs[i][0]}")
+                        self.logger.debug(f"  OCR2: {batch_correction_inputs[i][1]}")
+
+                corrected_texts = await self.corrector.batch_correct_texts(
                     batch_correction_inputs, language=self.source_lang
                 )
-                
-                # Insert corrected texts back into the blocks
+
                 for i, block in enumerate(blocks_needing_correction):
                     if i < len(corrected_texts):
                         block["corrected_text"] = corrected_texts[i]
+                        self.logger.debug(f"Block {block['id']}: Corrected text: {corrected_texts[i]}")
                     else:
                         block["corrected_text"] = block.get("text", "")
+                        self.logger.warning(f"Block {block['id']}: No correction received, using primary OCR")
             else:
                 self.logger.info("No texts need correction")
+
+            if output_dir and save_recognition:
+                self.logger.info("Creating recognition visualizations with corrected text")
+                
+                recognition_dir = os.path.join(output_dir, "recognition")
+                os.makedirs(recognition_dir, exist_ok=True)
+                
+                for i, frame in enumerate(all_frames):
+                    try:
+                        image_path = frame["image_path"]
+                        frame_blocks = frame["blocks"]
+                        
+                        if not frame_blocks:
+                            continue
+                        
+                        detection_path = None
+                        if save_detection:
+                            detection_dir = os.path.join(output_dir, "detection")
+                            detection_path = os.path.join(detection_dir, f"frame_{i+1:03d}.jpg")
+                        
+                        if detection_path and os.path.exists(detection_path):
+                            base_image = load_image(detection_path)
+                        else:
+                            base_image = load_image(image_path)
+                        
+                        if base_image is not None:
+                            text_blocks = []
+                            separator_lines_lists = []
+                            
+                            for block in frame_blocks:
+                                text_block = TextBlock(
+                                    box=np.array(block["box"]),
+                                    class_name=block["class_name"],
+                                    confidence=block["confidence"],
+                                    id=block["id"]
+                                )
+                                text_blocks.append(text_block)
+                                
+                                if block.get("separators"):
+                                    separator_lines = [np.array(sep) for sep in block["separators"]]
+                                    separator_lines_lists.append(separator_lines)
+                                else:
+                                    separator_lines_lists.append([])
+                            
+                            bubble_boxes = [block.box for block in text_blocks]
+                            classes = [block.class_name for block in text_blocks]
+                            labels = [f"{block.class_name} ({block.confidence:.2f})" for block in text_blocks]
+                            
+                            base_image = draw_boxes_with_labels(base_image, bubble_boxes, labels, classes)
+                            base_image = visualize_separator_lines(base_image, text_blocks, separator_lines_lists)
+                        
+                            line_boxes = []
+                            line_texts = []
+                            
+                            for block in frame_blocks:
+                                x_min, y_min, x_max, y_max = map(int, block["box"])
+                                
+                                if "text_lines" in block and block["text_lines"]:
+                                    for line_idx, line in enumerate(block["text_lines"]):
+                                        if "box" in line and "text" in line:
+                                            line_box = np.array(line["box"])
+                                            
+                                            if len(block["text_lines"]) == 1 and "corrected_text" in block:
+                                                line_text = block["corrected_text"]
+                                            else:
+                                                line_text = line["text"]
+                                                
+                                            line_boxes.append(line_box)
+                                            line_texts.append(line_text)
+                            
+                            if line_boxes:
+                                final_viz = draw_boxes_with_labels(
+                                    base_image,
+                                    line_boxes,
+                                    line_texts
+                                )
+                            else:
+                                final_viz = base_image
+                            
+                            recognition_path = os.path.join(recognition_dir, f"frame_{i+1:03d}.jpg")
+                            save_image(final_viz, recognition_path)
+                            self.logger.debug(f"Saved recognition visualization for frame {i+1} with corrected text")
+                    
+                    except Exception as e:
+                        self.logger.warning(f"Failed to save corrected recognition visualization for frame {i+1}: {e}")
+                    
         elif not self.dual_ocr and self.use_correction:
             self.logger.warning("OCR correction enabled but dual OCR is disabled. Skipping correction.")
             for block in all_blocks:
@@ -942,78 +993,41 @@ class ComicProcessor:
         translate_time = time.time()
         if self.translator:
             self.logger.info("STEP 5: Translation")
+
+            batch_texts = []
+            batch_bubble_types = []
+            blocks_to_translate = []
             
-            # Group blocks by class for more efficient translation
-            class_to_blocks = {}
             for block in all_blocks:
-                class_name = block["class_name"]
-                if class_name not in class_to_blocks:
-                    class_to_blocks[class_name] = []
-                class_to_blocks[class_name].append(block)
-            
-            # Process each class separately
-            for class_name, blocks in class_to_blocks.items():
-                self.logger.info(f"Translating {len(blocks)} blocks of type '{class_name}'")
+                text = block.get("corrected_text", "") or block.get("text", "")
+                if not text.strip():
+                    block["translated_text"] = ""
+                    continue
                 
-                batch_texts = []
-                batch_contexts = []
-                blocks_to_translate = []
-                
-                for block in blocks:
-                    text = block.get("corrected_text", "") or block.get("text", "")
-                    if not text.strip():
-                        block["translated_text"] = ""
-                        continue
-                    
-                    batch_texts.append(text)
-                    blocks_to_translate.append(block)
-                    
-                    # Create context for this block from previous blocks in reading order
-                    frame_id = block["frame_id"]
-                    frame = all_frames[frame_id]
-                    
-                    # Find blocks that come before this one in reading order
-                    frame_blocks = frame["blocks"]
-                    block_ids_in_frame = [b["id"] for b in frame_blocks]
-                    current_idx = block_ids_in_frame.index(block["id"])
-                    prev_blocks = frame_blocks[:current_idx][-2:]  # Get up to 2 previous blocks
-                    
-                    context_blocks = []
-                    for prev_block in prev_blocks:
-                        prev_text = prev_block.get("corrected_text", "") or prev_block.get("text", "")
-                        if prev_text.strip():
-                            context_blocks.append({
-                                "text": prev_text,
-                                "bubble_type": prev_block["class_name"]
-                            })
-                    
-                    if context_blocks:
-                        batch_contexts.append([{
-                            "context_strategy": "prev",
-                            "bubbles": context_blocks
-                        }])
+                batch_texts.append(text)
+                batch_bubble_types.append(block["class_name"])
+                blocks_to_translate.append(block)
+
+            if batch_texts:
+                self.logger.info(f"Translating {len(batch_texts)} blocks using built-in context generation")
+
+                translated_texts = await self.translator.batch_translate(
+                    texts=batch_texts,
+                    source_lang=self.source_lang,
+                    target_lang=self.target_lang,
+                    bubble_types=batch_bubble_types,
+                    context_strategy="prev",
+                    context_window_size=3
+                )
+
+                for i, block in enumerate(blocks_to_translate):
+                    if i < len(translated_texts):
+                        block["translated_text"] = translated_texts[i]
                     else:
-                        batch_contexts.append(None)
-                
-                if batch_texts:
-                    self.logger.info(f"Translating batch of {len(batch_texts)} texts for class '{class_name}'")
-                    translated_texts = self.translator.batch_translate(
-                        texts=batch_texts,
-                        source_lang=self.source_lang,
-                        target_lang=self.target_lang,
-                        bubble_types=[class_name] * len(batch_texts),
-                        contexts=batch_contexts,
-                        max_tokens=256
-                    )
-                    
-                    # Insert translated texts back into the blocks
-                    for i, block in enumerate(blocks_to_translate):
-                        if i < len(translated_texts):
-                            block["translated_text"] = translated_texts[i]
-                        else:
-                            block["translated_text"] = ""
-            
-            # Save translation visualization if requested
+                        block["translated_text"] = ""
+            else:
+                self.logger.info("No blocks to translate")
+
             if output_dir and save_translation:
                 translation_dir = os.path.join(output_dir, "translation")
                 
@@ -1040,11 +1054,9 @@ class ComicProcessor:
         else:
             for block in all_blocks:
                 block["translated_text"] = ""
-        
-        # Save results and create output files
+
         end_time = time.time()
-        
-        # Calculate timing for each step
+
         timing = {
             "segmentation": detect_time - seg_time,
             "detection": ocr_time - detect_time,
@@ -1073,8 +1085,7 @@ class ComicProcessor:
                 "use_segmentation": self.use_segmentation
             }
         }
-        
-        # Save outputs
+
         if output_dir:
             self._save_chapter_outputs(results, output_dir)
         
@@ -1090,11 +1101,9 @@ class ComicProcessor:
         """
         self.logger.info(f"Saving chapter processing results to {output_dir}")
         import json
-        
-        # Save summary JSON
+
         summary_path = os.path.join(output_dir, "chapter_summary.json")
         with open(summary_path, 'w', encoding='utf-8') as f:
-            # Create a copy without the full blocks/frames data
             summary = {
                 "chapter_path": results["chapter_path"],
                 "processed_time": results["processed_time"],
@@ -1104,8 +1113,7 @@ class ComicProcessor:
                 "config": results["config"]
             }
             json.dump(summary, f, ensure_ascii=False, indent=2)
-        
-        # Save full results JSON
+
         full_results_path = os.path.join(output_dir, "chapter_full_results.json")
         with open(full_results_path, 'w', encoding='utf-8') as f:
             import json
@@ -1125,7 +1133,6 @@ class ComicProcessor:
             
             json.dump(results, f, cls=NumpyEncoder, ensure_ascii=False, indent=2)
         
-        # Save recognized text to TXT file
         text_path = os.path.join(output_dir, "recognized_text.txt")
         with open(text_path, 'w', encoding='utf-8') as f:
             for frame in results["frames"]:
@@ -1149,8 +1156,7 @@ class ComicProcessor:
                         f.write(f"{text}\n\n")
                 
                 f.write("\n\n")
-        
-        # Save translated text if available
+
         if any(block.get("translated_text") for frame in results["frames"] for block in frame["blocks"]):
             translation_path = os.path.join(output_dir, "translated_text.txt")
             with open(translation_path, 'w', encoding='utf-8') as f:

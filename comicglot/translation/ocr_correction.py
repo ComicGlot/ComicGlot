@@ -113,8 +113,7 @@ class OCRCorrector:
                 temperature=self.temperature
             )
             print(response)
-            
-            # Extract the corrected text from the response
+
             if "CORRECTED_TEXT:" in response:
                 corrected_text = response.split("CORRECTED_TEXT:", 1)[1].strip()
                 logger.info("Successfully corrected OCR text")
@@ -127,7 +126,7 @@ class OCRCorrector:
             logger.error(f"Error in OCR correction: {str(e)}")
             return ocr_results[0]
     
-    def batch_correct_texts(
+    async def batch_correct_texts(
         self,
         ocr_results_list: List[List[str]],
         contexts: Optional[List[str]] = None,
@@ -149,6 +148,7 @@ class OCRCorrector:
             List of corrected text strings
         """
         if not ocr_results_list:
+            logger.warning("No OCR results provided for batch correction")
             return []
         
         if contexts is None:
@@ -157,14 +157,22 @@ class OCRCorrector:
         prompts = []
         valid_indices = []
         
+        logger.info(f"Preparing correction batch with {len(ocr_results_list)} OCR pairs")
+        
         for i, ocr_results in enumerate(ocr_results_list):
             if not ocr_results:
                 prompts.append("")  # Empty prompt for empty results
+                logger.debug(f"Skipping empty OCR results at index {i}")
                 continue
                 
             if len(ocr_results) == 1:
                 prompts.append("")
+                logger.debug(f"Skipping single OCR result at index {i}: {ocr_results[0]}")
                 continue
+                
+            if len(ocr_results) != 2:
+                logger.warning(f"Expected 2 OCR results at index {i}, got {len(ocr_results)}. Using first two.")
+                ocr_results = ocr_results[:2]
 
             prompt = self.prompt_template.format(
                 language=language,
@@ -175,28 +183,31 @@ class OCRCorrector:
             
             prompts.append(prompt)
             valid_indices.append(i)
+            logger.debug(f"Added correction pair {i} to batch: OCR1='{ocr_results[0]}', OCR2='{ocr_results[1]}'")
 
         valid_prompts = [p for p in prompts if p]
         
         if not valid_prompts:
+            logger.info("No valid prompts for correction after filtering")
             return [results[0] if results else "" for results in ocr_results_list]
+
+        logger.info(f"Sending {len(valid_prompts)} OCR pairs for correction out of {len(ocr_results_list)} total")
         
         try:
-            corrected_texts = self.llm_processor.batch_process_with_claude_sync(
+            all_corrected_texts = await self.llm_processor.batch_process_with_claude( # batch_process_with_claude_sync(
                 prompts=valid_prompts,
-                # system_prompt=self.system_prompt,
                 max_tokens=max_tokens,
                 temperature=self.temperature,
-                concurrency_limit=concurrency_limit
+                # concurrency_limit=concurrency_limit
             )
-
+            
             processed_texts = []
-            for response in corrected_texts:
+            for response in all_corrected_texts:
                 if "CORRECTED_TEXT:" in response:
                     text = response.split("CORRECTED_TEXT:", 1)[1].strip()
                     processed_texts.append(text)
                 else:
-                    # If the marker isn't found, add an empty string as a placeholder
+                    logger.warning(f"Correction response missing 'CORRECTED_TEXT:' marker: {response[:100]}...")
                     processed_texts.append("")
 
             final_results = []
@@ -207,10 +218,14 @@ class OCRCorrector:
                 
                 if i in valid_indices:
                     text = processed_texts[valid_idx]
+                    if text:
+                        logger.debug(f"OCR correction {i}: '{results[0]}' -> '{text}'")
+                    else:
+                        logger.warning(f"Empty correction result for item {i}")
+                        
                     final_results.append(text if text else (results[0] if results else ""))
                     valid_idx += 1
                 else:
-                    # Use the first OCR result for skipped items
                     final_results.append(results[0] if results else "")
             
             logger.info(f"Successfully batch-corrected {len(valid_prompts)} OCR texts")
@@ -218,7 +233,6 @@ class OCRCorrector:
             
         except Exception as e:
             logger.error(f"Error in batch OCR correction: {str(e)}")
-            # Fallback to the first OCR result for each input
             return [results[0] if results else "" for results in ocr_results_list]
 
 

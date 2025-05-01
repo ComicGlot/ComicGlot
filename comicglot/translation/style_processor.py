@@ -345,7 +345,7 @@ class StyleTranslator:
             logger.error(f"Error in translation: {str(e)}")
             return text
     
-    def batch_translate(
+    async def batch_translate(
         self,
         texts: List[str],
         source_lang: str,
@@ -375,18 +375,24 @@ class StyleTranslator:
             List of translated texts
         """
         if not texts:
+            logger.warning("Empty list of texts provided for translation")
             return []
         
         if len(texts) != len(bubble_types):
+            logger.error("Number of texts must match number of bubble types")
             raise ValueError("Number of texts must match number of bubble types")
 
+        # Handle context generation strategies
         if contexts is not None and context_strategy is not None:
+            logger.error("Cannot provide both 'contexts' and 'context_strategy' parameters")
             raise ValueError("Cannot provide both 'contexts' and 'context_strategy' parameters")
 
         if context_strategy is not None:
             if context_strategy not in ["prev", "next", "mid"]:
+                logger.error(f"Invalid context_strategy: {context_strategy}")
                 raise ValueError("context_strategy must be one of: 'prev', 'next', 'mid'")
 
+            logger.info(f"Generating context using '{context_strategy}' strategy")
             contexts = []
             for i in range(len(texts)):
                 ctx = self._generate_batch_context(
@@ -401,14 +407,19 @@ class StyleTranslator:
         if contexts is None:
             contexts = [None] * len(texts)
         elif len(contexts) != len(texts):
+            logger.error(f"Number of contexts ({len(contexts)}) does not match number of texts ({len(texts)})")
             raise ValueError("Number of contexts must match number of texts")
 
+        logger.info(f"Preparing translation batch with {len(texts)} texts")
+        
+        # Prepare prompts
         prompts = []
         valid_indices = []
         
         for i, (text, bubble_type) in enumerate(zip(texts, bubble_types)):
             if not text.strip():
                 prompts.append("")  # Empty prompt for empty text
+                logger.debug(f"Skipping empty text at index {i}")
                 continue
 
             style_guide = self.style_guides.get(bubble_type, self.style_guides.get("default", self.DEFAULT_FALLBACK))
@@ -425,35 +436,39 @@ class StyleTranslator:
             
             prompts.append(prompt)
             valid_indices.append(i)
+            logger.debug(f"Added text {i} ({bubble_type}) to translation batch: '{text[:50]}{'...' if len(text) > 50 else ''}'")
 
         valid_prompts = [p for p in prompts if p]
         filtered_indices = [valid_indices[i] for i, p in enumerate(prompts) if p]
-        #print(valid_prompts)
+        
         if not valid_prompts:
+            logger.warning("No valid translation prompts after filtering")
             return texts  # Return original texts if no valid prompts
         
         try:
-            responses = self.llm_processor.batch_process_with_claude_sync(
+            all_responses = await self.llm_processor.batch_process_with_claude( # batch_process_with_claude_sync
                 prompts=valid_prompts,
-                # system_prompt=self.system_prompt,
                 max_tokens=max_tokens,
                 temperature=self.temperature,
-                concurrency_limit=concurrency_limit
+                #concurrency_limit=concurrency_limit
             )
-            #print(responses)
 
             translated_texts = []
-            for response in responses:
+            for i, response in enumerate(all_responses):
                 if "TRANSLATED_TEXT:" in response:
                     translated_text = response.split("TRANSLATED_TEXT:", 1)[1].strip()
                     translated_texts.append(translated_text)
+                    logger.debug(f"Translation {i} successful")
                 else:
-                    logger.warning("LLM response did not contain 'TRANSLATED_TEXT:' marker")
+                    logger.warning(f"Translation {i} response missing 'TRANSLATED_TEXT:' marker: {response[:100]}...")
                     translated_texts.append(response.strip())
 
-            final_results = texts.copy()  # Start with original texts
-            for i, translated_text in zip(filtered_indices, translated_texts):
-                final_results[i] = translated_text
+            final_results = texts.copy()
+            for i, idx in enumerate(filtered_indices):
+                if i < len(translated_texts):
+                    final_results[idx] = translated_texts[i]
+                else:
+                    logger.warning(f"Missing translation for text at index {idx}")
             
             logger.info(f"Successfully batch-translated {len(valid_prompts)} texts")
             return final_results

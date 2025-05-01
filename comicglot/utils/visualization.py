@@ -105,6 +105,8 @@ def draw_boxes_with_labels(
     try:
         FONT_PATH = os.path.abspath(os.getenv("FONT_PATH", "./data/fonts/IBMPlexSansKR-Medium.ttf"))
         font = ImageFont.truetype(FONT_PATH, 24)
+        # if hasattr(font, "set_variation_by_axes"):
+        #     font.set_variation_by_axes([500])
     except IOError:
         font = ImageFont.load_default()
 
@@ -120,7 +122,7 @@ def draw_boxes_with_labels(
 
         label_bbox = draw.textbbox((0, 0), label, font=font)
         label_width = label_bbox[2] - label_bbox[0]
-        label_height = label_bbox[3] - label_bbox[1] + 5  # Correcting text spot due to font
+        label_height = label_bbox[3] - label_bbox[1] + 5
 
         label_position = (
             x_min,  
@@ -136,7 +138,7 @@ def draw_boxes_with_labels(
         )
 
         draw.text(
-            (label_position[0], label_position[1] - 5), 
+            (label_position[0], label_position[1] + 5), 
             label, 
             # fill=(0, 0, 0),  # Black text 
             fill=(255, 255, 255),  # White text
