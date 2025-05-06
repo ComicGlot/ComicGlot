@@ -5,7 +5,7 @@ from transformers import AutoTokenizer
 from pathlib import Path
 
 #corpus_file = "E:/ko.txt"
-corpus_file = "E:/Projects/Python/Manhua_Scanner/OCR/OCR_training/ko_corpus/full_corpus_nltk.txt"
+corpus_file = "./OCR/OCR_training/ko_corpus/full_corpus_nltk.txt"
 
 # ------------------------------------------------------
 # def read_corpus_in_chunks(filepath, start, end):

@@ -40,10 +40,10 @@ import os
 # 
 
 if __name__ == '__main__':
-    model = YOLO("E:/Projects/Python/Manhua_Scanner/runs/detect/train19/weights/best.pt")
+    model = YOLO("./runs/detect/train19/weights/best.pt")
     
-    folder = "E:/Projects/Python/Manhua_Scanner/datasets/testing/3/"
-    output_folder = "E:/Projects/Python/Manhua_Scanner/datasets/predictions/1"
+    folder = "./datasets/testing/3/"
+    output_folder = "./datasets/predictions/1"
 
     #os.makedirs(output_folder, exist_ok=True)
 

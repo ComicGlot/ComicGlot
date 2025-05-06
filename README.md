@@ -7,6 +7,8 @@ ComicGlot is an end-to-end intelligent system for automated segmentation, recogn
 
 Unlike conventional OCR and translation pipelines, ComicGlot integrates bubble classification, specialized hieroglyphic text recognition, and context-aware translation to maintain the artistic integrity of the original content. This approach enables faster, higher-quality localization of comics while retaining their distinctive visual storytelling elements.
 
+![pipeline](data/contents/pipeline.png)
+
 ## 📋 Table of Contents
 
 - [Installation](#installation)
@@ -47,7 +49,6 @@ ComicGlot uses environment variables for API keys and model paths. Copy the exam
 
 ```bash
 cp .env.example .env
-# Edit .env with your preferred text editor
 ```
 
 ## 🚀 Quick Start
@@ -59,20 +60,14 @@ ComicGlot can be used programmatically or via command-line tools.
 ```python
 from comicglot.comic_processor import ComicProcessor
 
-# Initialize the processor
 processor = ComicProcessor()
-
-# Process a single image
 results = processor.process_image("path/to/comic_image.jpg")
-
-# Save the results
 processor.save_results(results, "path/to/output")
 ```
 
 ### Processing an Entire Chapter
 
 ```bash
-# Using the command-line tool
 python -m comicglot.scripts.process_chapter --input path/to/chapter --output path/to/output
 ```
 
@@ -82,11 +77,11 @@ ComicGlot employs a modular architecture where each component addresses a specif
 
 ```
 comicglot/
-├── pipeline/     # Core processing workflow orchestration
-├── detection/    # Text bubble detection and classification
-├── recognition/  # OCR specialized for hieroglyphic text
-├── translation/  # Context-aware stylized translation 
-└── utils/        # Common utilities and helper functions
+├── comic_processor/ # Core processing workflow orchestration
+├── detection/       # Text bubble detection and classification
+├── recognition/     # OCR specialized for hieroglyphic text
+├── translation/     # Context-aware stylized translation 
+└── utils/           # Common utilities and helper functions
 ```
 
 Each module is designed to work independently or as part of the integrated pipeline. This architecture allows for flexibility in deployment and customization while maintaining a coherent workflow. Detailed documentation for each component is available in their respective directories.
@@ -99,8 +94,9 @@ ComicGlot offers a comprehensive API that can be used either as an integrated pi
 
 The pipeline integrates detection, recognition, and translation in a single workflow:
 
+
 ```python
-from comicglot.pipeline import ComicProcessor
+from comicglot.comic_processor import ComicProcessor
 
 processor = ComicProcessor(
     detection_model="yolo",
@@ -110,7 +106,6 @@ processor = ComicProcessor(
     target_lang="en"
 )
 
-# Process a complete chapter
 processor.process_chapter(
     input_dir="path/to/chapter",
     output_dir="path/to/output",
@@ -130,7 +125,6 @@ from comicglot.detection import YOLODetector
 detector = YOLODetector(model_path="path/to/model.pt")
 bubbles = detector.detect("path/to/image.jpg")
 
-# Process detected bubbles
 for bubble in bubbles:
     print(f"Class: {bubble.class_name}, Confidence: {bubble.confidence}")
     print(f"Coordinates: {bubble.box}")
@@ -142,10 +136,8 @@ for bubble in bubbles:
 from comicglot.recognition import OCRProcessor
 from PIL import Image
 
-# Initialize OCR with language specification
 ocr = OCRProcessor(language=["ko"])
 
-# Process a bubble image
 image = Image.open("path/to/bubble.jpg")
 text = ocr.recognize(image)
 print(f"Recognized text: {text}")
@@ -156,14 +148,12 @@ print(f"Recognized text: {text}")
 ```python
 from comicglot.translation import LLMTranslator
 
-# Initialize with style preservation enabled
 translator = LLMTranslator(
     source_lang="ko", 
     target_lang="en",
     style_preservation=True
 )
 
-# Translate with contextual information
 translated = translator.translate(
     text="안녕하세요!!!",
     bubble_type="scream_bubble",
@@ -173,6 +163,7 @@ translated = translator.translate(
 print(f"Stylized translation: {translated}")
 ```
 
+
 ## 🔬 Technical Details
 
 ComicGlot's approach is distinguished by its specialized components working in concert to address the unique challenges of comic localization.
@@ -181,7 +172,17 @@ ComicGlot's approach is distinguished by its specialized components working in c
 
 The system employs YOLOv12 with custom training to identify 13 distinct text bubble types based on visual characteristics. This fine-grained classification is crucial for preserving the emotional and narrative context in translation.
 
-The detection model achieves over 95% mAP50 on test datasets, reliably identifying various bubble types including standard speech, thought bubbles, exclamations, sound effects, and narrative text. This classification serves as the foundation for the downstream stylistic processing.
+![bubbles](data/contents/bubbles.png)
+
+The detection model achieves over 86% mAP50 on test datasets, reliably identifying various bubble types including standard speech, thought bubbles, exclamations, sound effects, and narrative text. This classification serves as the foundation for the downstream stylistic processing.
+
+![detector_usage](data/contents/detector_usage.png)
+
+### Synthetic Data Generation for TrOCR Training
+
+The OCR system relies on synthetic data generation to create training examples without requiring manual annotation. Using the CC-100 corpus with 5.6 billion Korean tokens as a text source, the system leverages an extended version of the SynthTIGER framework to generate over 2 million training images. These images incorporate varied comic-specific fonts, styles, and visual treatments that match the different text presentations found in manhwa. This approach allows the model to recognize both standard and highly stylized text with significantly lower error rates compared to generic OCR solutions.
+
+![alt text](data/contents/synthetic_data.png)
 
 ### Hieroglyphic Text Recognition
 
@@ -192,6 +193,8 @@ Comic text recognition presents unique challenges due to artistic fonts, variabl
 
 This dual approach achieves Character Error Rates (CER) below 5% on typical manhwa fonts while maintaining robustness to stylistic variations. The system also incorporates CRAFT (Character Region Awareness For Text Detection) to handle complex text layouts within bubbles.
 
+![ocr_usage](data/contents/ocr_usage.png)
+
 ### Context-Aware Stylized Translation
 
 Translation in ComicGlot goes beyond simple text conversion to preserve stylistic elements:
@@ -199,6 +202,58 @@ Translation in ComicGlot goes beyond simple text conversion to preserve stylisti
 1. Context windows maintain narrative coherence across sequential bubbles
 2. Bubble-type-specific prompting guides Large Language Models (Claude 3.7 and Qwen) to maintain appropriate emotional tone
 3. Specialized handling for sound effects and onomatopoeia, which often require creative adaptation rather than literal translation
+
+At the end you get the full processed JSON logging file, which can be further utilised in work:
+
+```json
+    {
+      "id": 0,
+      "image_path": "data\\output\\comicglot_run24\\segments\\segment_001.png",
+      "source_image": "data\\chapters\\4\\01.png",
+      "blocks": [
+        {
+          "id": 0,
+          "frame_id": 0,
+          "box": [
+            57.699745178222656,
+            7.908215522766113,
+            634.5813598632812,
+            499.9194030761719
+          ],
+          "class_name": "speech_bubble",
+          "confidence": 0.9790289402008057,
+          "separators": null,
+          "source_image": "data\\chapters\\4\\01.png",
+          "text": "나 약속 치켰어요, 초보자님.",
+          "text_lines": [
+            {
+              "box": [
+                128,
+                150,
+                560,
+                238
+              ],
+              "text": "나 약속 치켰어요,"
+            },
+            {
+              "box": [
+                224,
+                231,
+                456,
+                309
+              ],
+              "text": "초보자님."
+            }
+          ],
+          "secondary_text": "나 약속 지켰어요, 초보자님.",
+          "corrected_text": "나 약속 지켰어요, 초보자님.",
+          "translated_text": "I kept my promise, rookie."
+        }
+      ],
+      "num_blocks": 1
+    },
+...
+```
 
 ## 🧠 Training Your Own Models
 
@@ -210,15 +265,15 @@ ComicGlot supports customization for specific comics or languages. See [training
 
 ## Contributing
 
-Contributions to improve ComicGlot are welcome. Please consult [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, code standards, and contribution workflow.
+Contributions to improve ComicGlot are welcome. If needed - please consult for development guidelines, code standards, and contribution workflow.
 
 ## Citation
 
 If you use ComicGlot in your research, please cite:
 
 ```bibtex
-@misc{nehrub2025comicglot,
-  author = {Nehrub, Andrii S.},
+@misc{negrub2025comicglot,
+  author = {Negrub, Andrii S.},
   title = {ComicGlot: Intelligent System for Segmentation and Stylized Translation 
            of Hieroglyphic Text in Multimedia Comics},
   year = {2025},

@@ -122,8 +122,8 @@ def preprocess_streamed_data(example):
     }
 
 MODEL_NAME = "team-lucid/trocr-small-korean"
-#MODEL_NAME_2 = "E:/Projects/Python/Manhua_Scanner/OCR/OCR_training/transformer_training/ko-trocr-cc100/2m_mecab_kotrocr_tuned/checkpoint-12000-v1"
-#MODEL_NAME = "E:/Projects/Python/Manhua_Scanner/OCR/OCR_training/transformer_training/ko-trocr-cc100/112k_split_words_1/checkpoint-7000"
+#MODEL_NAME_2 = "./OCR/OCR_training/transformer_training/ko-trocr-cc100/2m_mecab_kotrocr_tuned/checkpoint-12000-v1"
+#MODEL_NAME = "./OCR/OCR_training/transformer_training/ko-trocr-cc100/112k_split_words_1/checkpoint-7000"
 model = VisionEncoderDecoderModel.from_pretrained(MODEL_NAME, trust_remote_code=True).to(device)
 
 # dataset = load_dataset(

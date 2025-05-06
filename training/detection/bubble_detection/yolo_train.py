@@ -4,10 +4,10 @@ if __name__ == '__main__':
     #model = YOLO('yolo11m.pt')  # Load a model
     #model = YOLO('yolov9m.pt')  # Load a model
     model = YOLO('yolo12s.pt')  # Load a model
-    #model = YOLO('E:/Projects/Python/Manhua_Scanner/runs/detect/tune/weights/best.pt')
+    #model = YOLO('./runs/detect/tune/weights/best.pt')
     
     results = model.train(
-    data="E:/Projects/Python/Manhua_Scanner/datasets/Manhua_bubbles.v7.yolov11/data.yaml",
+    data="./datasets/Manhua_bubbles.v7.yolov11/data.yaml",
 
         epochs=80,
         #patience=30,  # Stop if no improvement in 10 epochs

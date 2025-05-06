@@ -79,6 +79,6 @@ def perform_fldr_ocr(folder, lang='kor'):
             cv2.imwrite('preprocessed_image.png', preprocessed_image)  # Save for debugging
 
 if __name__ == "__main__":
-    image_path = r"E:/Projects/Python/Manhua_Scanner/data/bubbles/test2.jpg"
+    image_path = r"./data/bubbles/test2.jpg"
     perform_img_ocr(image_path, lang='kor')
     #perform_fldr_ocr(image_path, lang='kor')

@@ -142,7 +142,7 @@ def preprocess_batched_data(examples):
 
 # MODEL_NAME = "microsoft/trocr-base-stage1"
 #MODEL_NAME = "team-lucid/trocr-small-korean"
-MODEL_NAME = "E:/Projects/Python/Manhua_Scanner/OCR/OCR_training/transformer_training/ko-trocr-cc100/112k_split_words_1/checkpoint-7000"
+MODEL_NAME = "./OCR/OCR_training/transformer_training/ko-trocr-cc100/112k_split_words_1/checkpoint-7000"
 model = AutoModelForVision2Seq.from_pretrained(MODEL_NAME, trust_remote_code=True).to(device)
 
 dataset = load_dataset(GT_FILE, DATA_PATH, sample_size=30_000) # Set sample_size if not full dataset is used

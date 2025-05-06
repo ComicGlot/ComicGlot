@@ -7,7 +7,7 @@ from ultralytics import YOLO
 if __name__ == '__main__':
     model = YOLO('yolo11m.pt')  # Load a model
 
-    #model = YOLO('E:/Projects/Python/Manhua_Scanner/runs/detect/tune5/weights/last.pt')  # Load a model
+    #model = YOLO('./runs/detect/tune5/weights/last.pt')  # Load a model
 
     # Define search space
     search_space = {
@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     results = model.tune(
         #resume=True,
-        data="E:/Projects/Python/Manhua_Scanner/datasets/Manhua_bubbles_v3/data.yaml",
+        data="./datasets/Manhua_bubbles_v3/data.yaml",
         epochs=10,
         iterations=500,
         optimizer="AdamW",
