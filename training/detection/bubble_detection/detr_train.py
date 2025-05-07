@@ -1,5 +1,3 @@
-# Reffering to: https://colab.research.google.com/github/roboflow-ai/notebooks/blob/main/notebooks/train-huggingface-detr-on-custom-dataset.ipynb
-
 import os
 import torchvision
 import torch
@@ -55,10 +53,6 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         return pixel_values, target
 
 def collate_fn(batch):
-    # DETR authors employ various image sizes during training, making it not possible 
-    # to directly batch together images. Hence they pad the images to the biggest 
-    # resolution in a given batch, and create a corresponding binary pixel_mask 
-    # which indicates which pixels are real/which are padding
     pixel_values = [item[0] for item in batch]
     encoding = image_processor.pad(pixel_values, return_tensors="pt")
     labels = [item[1] for item in batch]
@@ -89,38 +83,9 @@ TRAIN_DATALOADER = DataLoader(dataset=TRAIN_DATASET, collate_fn=collate_fn, batc
 VAL_DATALOADER = DataLoader(dataset=VAL_DATASET, collate_fn=collate_fn, batch_size=2)
 TEST_DATALOADER = DataLoader(dataset=TEST_DATASET, collate_fn=collate_fn, batch_size=2)
 
-# # select random image
-# image_ids = TRAIN_DATASET.coco.getImgIds()
-# image_id = random.choice(image_ids)
-# print('Image #{}'.format(image_id))
-
-# # load image and annotatons 
-# image = TRAIN_DATASET.coco.loadImgs(image_id)[0]
-# annotations = TRAIN_DATASET.coco.imgToAnns[image_id]
-# image_path = os.path.join(TRAIN_DATASET.root, image['file_name'])
-# image = cv2.imread(image_path)
-
-# # annotate
-# detections = sv.Detections.from_coco_annotations(coco_annotation=annotations)
-
 categories = TRAIN_DATASET.coco.cats
 id2label = {k: v['name'] for k,v in categories.items()}
 print(id2label)
-
-# print(detections)
-# labels = [
-#     f"{id2label[class_id]}" 
-#     for _, _, _, class_id, _ 
-#     in detections
-# ]
-
-# box_annotator = sv.BoxAnnotator()
-# frame = box_annotator.annotate(scene=image, detections=detections, labels=labels)
-
-# #sv.show_frame_in_notebook(image, (16, 16))
-# cv2.imshow("Annotated Image", frame)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
 
 class Detr(pl.LightningModule):
 

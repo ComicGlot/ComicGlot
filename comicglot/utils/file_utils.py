@@ -23,8 +23,7 @@ def load_image(image_path: str) -> Optional[np.ndarray]:
         if image_path.startswith(('http://', 'https://')):
             response = urlopen(image_path)
             image_data = response.read()
-            
-            # Convert to numpy array using PIL
+
             pil_image = PILImage.open(BytesIO(image_data))
             image = np.array(pil_image)
             
@@ -34,7 +33,6 @@ def load_image(image_path: str) -> Optional[np.ndarray]:
             
             return image
         else:
-            # Load from local file
             image = cv2.imread(image_path)
             if image is None:
                 logger.error(f"Failed to load image from {image_path}")

@@ -65,7 +65,7 @@ def crop_image(image: Union[str, cv2.Mat], bbox: Tuple[int, int, int, int]) -> c
     Returns:
         np.ndarray: Cropped image or None if the crop is invalid.
     """
-    if isinstance(image, str):  # If image is a path, load it
+    if isinstance(image, str):
         image = load_image(image)
 
     h, w, _ = image.shape

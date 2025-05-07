@@ -30,14 +30,6 @@ import os
 #train24 - test_set , train_set v7, model yolo12m, 80 epochs  - predict
 #train25 - test_set , train_set v7, model yolo12s, 80 epochs  - predict
 
-# Needed:
-
-# YOLO12 (tuned)
-# YOLO11 (tuned)     V
-# YOLO11
-# YOLO9 (tuned)      V
-# DETR ResNet 50
-# 
 
 if __name__ == '__main__':
     model = YOLO("./runs/detect/train19/weights/best.pt")

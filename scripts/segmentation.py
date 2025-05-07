@@ -259,9 +259,6 @@ def run_direct():
     """
     Run segmentation with hard-coded parameters.
     """
-    # CONFIGURATION
-    # =======================================================================
-    
     INPUT_PATH = os.path.abspath(os.getenv("INPUT_FOLDER", "./data/chapters/"))
     OUTPUT_PATH = None # os.path.abspath(os.getenv("OUTPUT_FOLDER", "./data/output/"))
     MIN_HEIGHT = 800  # Minimum height of each segment in pixels
@@ -271,9 +268,7 @@ def run_direct():
     CARVING_STEP = 10  # Window size for finding split points
     BATCH_MODE = False  # Process all subdirectories as chapters
     VISUALIZE = True  # Generate visualization of segments
-    
-    # =======================================================================
-    
+
     try:
         if BATCH_MODE:
             logging.info(f"Running in batch mode on: {INPUT_PATH}")

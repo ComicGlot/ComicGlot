@@ -70,10 +70,10 @@ class YOLODetector:
         predictions = []
         
         for result in results:
-            boxes = result.boxes.xyxy.cpu().numpy()  # Bounding box coordinates
+            boxes = result.boxes.xyxy.cpu().numpy()        # Bounding box coordinates
             confidences = result.boxes.conf.cpu().numpy()  # Confidence scores
-            class_ids = result.boxes.cls.cpu().numpy()  # Class IDs
-            class_mapping = result.names  # Class names dictionary
+            class_ids = result.boxes.cls.cpu().numpy()     # Class IDs
+            class_mapping = result.names                   # Class names dictionary
             
             for i, box in enumerate(boxes):
                 cls_id = int(class_ids[i])

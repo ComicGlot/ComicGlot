@@ -329,8 +329,7 @@ class OCRProcessor:
             List of tuples, each containing (bounding_box, recognized_text)
         """
         self.logger.info(f"Processing {block_class} text block")
-        
-        # Default processing settings based on block class
+
         detection_settings = {
             'speech_bubble': True,
             'cloud_bubble': True,
@@ -348,7 +347,6 @@ class OCRProcessor:
         }
 
         if detect_lines is None:
-            # Use class-specific default
             detect_lines = detection_settings.get(block_class, True)
 
         # recognition_settings = {
@@ -417,12 +415,6 @@ class OCRProcessor:
 
                 if apply_separators and block.get('separators') is not None:
                     from comicglot.utils.spatial_processor import apply_separator_masks
-                    # separator_line = np.array(block['separator'])
-
-                    # separator_line[0][0] -= x_min
-                    # separator_line[0][1] -= y_min
-                    # separator_line[1][0] -= x_min
-                    # separator_line[1][1] -= y_min
 
                     local_separators = []
                     for sep in block['separators']:
@@ -432,20 +424,6 @@ class OCRProcessor:
                         local_separators.append(local_sep)
                     
                     cropped_block = apply_separator_masks(cropped_block, local_separators)
-
-                # ocr_results = self.process_text_block(
-                #     cropped_block,
-                #     block['class_name']
-                # )
-
-                # block_text = " ".join([text for _, text in ocr_results]).strip()
-
-                # block_result = block.copy()
-                # block_result['text'] = block_text
-                # block_result['text_lines'] = [
-                #     {'box': box, 'text': text}
-                #     for box, text in ocr_results
-                # ]
 
                 ocr_results = self.process_text_block(
                     cropped_block,

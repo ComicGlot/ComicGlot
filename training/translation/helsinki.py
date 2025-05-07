@@ -10,4 +10,4 @@ input_ids = tokenizer(input_text, return_tensors="pt").input_ids
 outputs = model.generate(input_ids)
 translated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-print(translated_text)  # Expected output: "Character name"
+print(translated_text)

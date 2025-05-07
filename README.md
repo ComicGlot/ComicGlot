@@ -283,7 +283,20 @@ If you use ComicGlot in your research, please cite:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. The NN classifier in this repository may have been trained using publicly accessible content from various sources. So, if provided - detection models are used for research and educational purposes only. 
+
+### Important Legal Notes:
+
+1. **No Endorsement**: This project is not affiliated with, endorsed by, or connected to any content providers whose material may have been used during training.
+
+2. **No Redistribution of Content**: This repository does not contain or redistribute any copyrighted content. Only the trained model parameters may be included.
+
+3. **Takedown Policy**: If you are a copyright holder and believe this project uses your content in a way that constitutes copyright infringement, please contact us. We are committed to promptly addressing legitimate concerns by:
+   - Removing specific model weights upon valid request
+   - Retraining models without the contested content
+   - Taking other reasonable measures to address valid legal concerns
+
+4. **User Responsibility**: Users of this model are responsible for ensuring their own compliance with applicable laws and terms of service.
 
 ## Acknowledgements
 

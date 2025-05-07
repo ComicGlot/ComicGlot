@@ -411,8 +411,7 @@ class StyleTranslator:
             raise ValueError("Number of contexts must match number of texts")
 
         logger.info(f"Preparing translation batch with {len(texts)} texts")
-        
-        # Prepare prompts
+
         prompts = []
         valid_indices = []
         

@@ -45,8 +45,7 @@ try:
     from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 except ImportError:
     logger.warning("nltk not installed. Install with 'pip install nltk' for BLEU metrics.")
-    
-    # Define fallback BLEU function
+
     def sentence_bleu(references, hypothesis, smoothing_function=None):
         """Fallback BLEU implementation (simplified)"""
         if not hypothesis or not references:

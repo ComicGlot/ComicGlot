@@ -77,13 +77,11 @@ class LLMProcessor:
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             logger.warning("No API key provided for LLM services.")
-        
-        # Resolve friendly model name to specific model version
+
         self.model_name = self._resolve_model_name(model_name)
         self.max_tokens = max_tokens
         self.temperature = temperature
-        
-        # Initialize clients if API keys are available
+
         self._init_clients()
         
     def _resolve_model_name(self, model_name: str) -> str:
