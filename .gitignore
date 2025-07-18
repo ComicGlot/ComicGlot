@@ -36,3 +36,6 @@ models/DETR-RESNET-50/*
 models/efficientdet_d4/*
 models/KoTrOCR/*
 models/YOLO/*
+
+raw_yolo_dataset/
+replacements.txt
