@@ -88,9 +88,12 @@ def segment_by_seam_carving(
             resized_img = cv2.resize(img, (max_width, new_height), interpolation=cv2.INTER_CUBIC)
             processed_images.append(resized_img)
         elif not resize and w < max_width:
-            # Pad image with black to match max width
-            padded_img = np.zeros((h, max_width, 3), dtype=np.uint8)
-            padded_img[:, :w, :] = img
+            # Pad to the widest image by repeating the right edge column. Black
+            # padding made every row of a narrower image fail the homogeneity
+            # test (the jump into black exceeds the 50-unit penalty), so those
+            # images could never be cut. The pipeline itself calls this with
+            # resize=True and is unaffected.
+            padded_img = cv2.copyMakeBorder(img, 0, 0, 0, max_width - w, cv2.BORDER_REPLICATE)
             processed_images.append(padded_img)
         else:
             # Image already has max width
@@ -187,39 +190,24 @@ def find_split_points(
 
 def calculate_color_homogeneity(image: np.ndarray, y: int, width: int, theta: float = 0.1) -> float:
     """
-    Calculate color homogeneity
-    
+    Share of horizontally adjacent pixel pairs in row y that differ by less than
+    10 (Euclidean RGB distance), or 0 if any pair differs by 50 or more.
+
+    Vectorised; returns the same values as the original per-pixel loop.
+
     Args:
         image: Input image
         y: Y-coordinate of the row to analyze
         width: Width of the image
-        theta: Threshold parameter for color similarity (default: 0.1)
-        
+        theta: Unused, kept for compatibility
+
     Returns:
         Homogeneity coefficient between 0 and 1
     """
-
-    row = image[y, :, :].astype(float)
-    
-    # Pixels with RGB differences less than 10 (out of 255) are considered similar
-    absolute_threshold = 10.0
-    
-    similar_pixels_count = 0
-    total_comparisons = width - 1
-    
-    max_diff = 0
-    
-    for x in range(width - 1):
-
-        pixel_diff = np.sqrt(np.sum(np.square(row[x] - row[x+1])))
-        max_diff = max(max_diff, pixel_diff)
-        
-        if pixel_diff < absolute_threshold:
-            similar_pixels_count += 1
-    
-    base_homogeneity = similar_pixels_count / total_comparisons
-    large_diff_penalty = 1.0 if max_diff < 50.0 else 0.0
-    
-    homogeneity = base_homogeneity * large_diff_penalty
-    
-    return homogeneity
+    if width < 2:
+        return 0.0
+    row = image[y, :width, :].astype(float)
+    diff = np.sqrt(np.sum(np.square(row[1:] - row[:-1]), axis=1))
+    if diff.max() >= 50.0:
+        return 0.0
+    return float(np.count_nonzero(diff < 10.0) / (width - 1))

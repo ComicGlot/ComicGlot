@@ -28,6 +28,10 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Options added for the paper's ablations; filled from the command line or the
+# environment and passed to every ComicProcessor this script creates.
+PIPELINE_OPTIONS: Dict[str, Any] = {}
+
 async def process_single(
     input_path: str,
     output_path: str,
@@ -85,7 +89,8 @@ async def process_single(
         dual_ocr=dual_ocr,
         use_correction=use_correction,
         use_segmentation=use_segmentation,
-        min_seg_height=min_seg_height
+        min_seg_height=min_seg_height,
+        **PIPELINE_OPTIONS
     )
     
     if os.path.isfile(input_path):
@@ -169,7 +174,8 @@ async def process_batch(
         dual_ocr=dual_ocr,
         use_correction=use_correction,
         use_segmentation=use_segmentation,
-        min_seg_height=min_seg_height
+        min_seg_height=min_seg_height,
+        **PIPELINE_OPTIONS
     )
     
     logger.info(f"Processing chapters in batch mode: {input_path}")
@@ -244,7 +250,19 @@ async def run_with_args():
     parser.add_argument("--recognition-model-path", type=str, default=None,
                         help="Path to custom recognition model")
     
+    parser.add_argument("--class-condition", choices=["true", "none", "shuffled"], default="true",
+                        help="Style guide per block: its own class (default), none, or a mismatched class")
+    parser.add_argument("--context-window", type=int, default=3,
+                        help="Previous blocks given to the translator (0 = no context)")
+    parser.add_argument("--no-correction-context", action="store_true",
+                        help="Do not give the OCR arbiter the block class and previous lines")
+    parser.add_argument("--arbitrate-punctuation", action="store_true",
+                        help="Arbitrate readings that differ only in punctuation")
+
     args = parser.parse_args()
+    PIPELINE_OPTIONS.update(class_condition=args.class_condition, context_window=args.context_window,
+                            correction_context=not args.no_correction_context,
+                            arbitrate_punctuation=args.arbitrate_punctuation)
     
     if args.save_all:
         args.save_segments = True
@@ -330,6 +348,12 @@ async def run_direct():
     use_correction = os.getenv("USE_CORRECTION", "False").lower() in ("true", "1", "yes")
     use_segmentation = os.getenv("USE_SEGMENTATION", "True").lower() in ("true", "1", "yes")
     min_seg_height = int(os.getenv("MIN_SEG_HEIGHT", "800"))
+    PIPELINE_OPTIONS.update(
+        class_condition=os.getenv("CLASS_CONDITION", "true"),
+        context_window=int(os.getenv("CONTEXT_WINDOW", "3")),
+        correction_context=os.getenv("CORRECTION_CONTEXT", "True").lower() in ("true", "1", "yes"),
+        arbitrate_punctuation=os.getenv("ARBITRATE_PUNCTUATION", "False").lower() in ("true", "1", "yes"),
+    )
     
     # Save options
     save_segments = os.getenv("SAVE_SEGMENTS", "True").lower() in ("true", "1", "yes")

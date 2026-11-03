@@ -1,3 +1,7 @@
+"""NOTE (paper rebuild): this script scores the primary OCR reading against the
+LLM-corrected text, so its CER/WER/BLEU measure agreement with the arbiter, not
+accuracy. Use eval/ocr_eval.py with a hand transcription for reported numbers.
+"""
 """
 Calculate metrics for OCR recognition using CER, WER, and BLEU.
 Compares the OCR text output with corrected_text as ground truth,

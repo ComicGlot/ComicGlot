@@ -45,7 +45,11 @@ class ComicProcessor:
         dual_ocr: bool = False,
         use_correction: bool = False,
         use_segmentation: bool = False,
-        min_seg_height: int = 800
+        min_seg_height: int = 800,
+        correction_context: bool = True,
+        class_condition: str = "true",
+        context_window: int = 3,
+        arbitrate_punctuation: bool = False
     ):
         """
         Initialize the comic processor.
@@ -63,6 +67,14 @@ class ComicProcessor:
             use_correction: Whether to use LLM-based OCR correction
             use_segmentation: Whether to use segmentation for long vertical comics
             min_seg_height: Minimum height of segments when using segmentation
+            correction_context: Give the OCR arbiter the block class and the previous lines
+            class_condition: Style guide used for translation: "true" (the detected class),
+                "none" (the default guide for every block) or "shuffled" (a deliberately
+                mismatched class, for ablations); see StyleTranslator.WRONG_CLASS
+            context_window: Number of previous blocks given to the translator (0 = none)
+            arbitrate_punctuation: Send readings that differ only in , . ; : ! ? to the
+                arbiter too. Off by default (the published behaviour); turn on when tone
+                punctuation matters, for example for scream_bubble and think_bubble
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         
@@ -77,6 +89,14 @@ class ComicProcessor:
         self.use_correction = use_correction
         self.use_segmentation = use_segmentation
         self.min_seg_height = min_seg_height
+        self.correction_context = correction_context
+        if class_condition not in ("true", "none", "shuffled"):
+            raise ValueError("class_condition must be 'true', 'none' or 'shuffled'")
+        self.class_condition = class_condition
+        self.context_window = context_window
+        self.arbitrate_punctuation = arbitrate_punctuation
+        self.detection_model_path = detection_model_path
+        self.recognition_model_path = recognition_model_path
 
         # Initialize components
         self.detector = self._init_detector(detection_model, detection_model_path)
@@ -345,6 +365,37 @@ class ComicProcessor:
         
         return results
     
+    def _provenance(self) -> Dict[str, Any]:
+        """Everything needed to say which models and prompts produced a run."""
+        import hashlib
+        import os
+        import subprocess
+        def sha(path):
+            try:
+                with open(path, "rb") as fh:
+                    return hashlib.sha256(fh.read()).hexdigest()[:16]
+            except OSError:
+                return None
+        try:
+            commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
+                                    timeout=5).stdout.strip() or None
+        except Exception:
+            commit = None
+        det_path = self.detection_model_path or os.getenv("YOLO_MODEL_PATH")
+        llm = {}
+        if getattr(self, "corrector", None) is not None:
+            llm["correction"] = {"model": self.corrector.llm_processor.model_name, "temperature": self.corrector.temperature}
+        if getattr(self, "translator", None) is not None and hasattr(self.translator, "llm_processor"):
+            llm["translation"] = {"model": self.translator.llm_processor.model_name, "temperature": self.translator.temperature}
+        return {
+            "git_commit": commit,
+            "detector_weights": det_path, "detector_sha256_16": sha(det_path) if det_path else None,
+            "recognition_model_path": self.recognition_model_path or os.getenv("TROCR_MODEL_PATH"),
+            "llm": llm,
+            "style_guides_sha256_16": sha(os.path.join("data", "prompts", "style_guides.json")),
+            "correction_prompt_sha256_16": sha(os.path.join("data", "prompts", "correction_prompt.txt")),
+        }
+
     def _are_texts_equivalent(self, text1: str, text2: str) -> bool:
         """
         Check if two OCR texts are equivalent, ignoring minor differences.
@@ -366,8 +417,9 @@ class ComicProcessor:
             text = text.strip()
             text = ' '.join(text.split())
             text = text.replace('\n', ' ').replace('\r', ' ')
-            for char in ',.;:!?':
-                text = text.replace(char, '')
+            if not self.arbitrate_punctuation:
+                for char in ',.;:!?':
+                    text = text.replace(char, '')
             return text.lower()
             
         return normalize(text1) == normalize(text2)
@@ -852,6 +904,7 @@ class ComicProcessor:
             
             batch_correction_inputs = []
             blocks_needing_correction = []
+            correction_contexts = []
             
             for block in all_blocks:
                 primary_text = block.get("text", "").strip()
@@ -869,6 +922,15 @@ class ComicProcessor:
                     # Both texts have content and they're different - needs correction
                     batch_correction_inputs.append([primary_text, secondary_text])
                     blocks_needing_correction.append(block)
+                    if self.correction_context:
+                        idx = all_blocks.index(block)
+                        prev = [b.get("corrected_text") or b.get("text", "") for b in all_blocks[max(0, idx - 3):idx]]
+                        prev = [t for t in prev if t]
+                        correction_contexts.append(
+                            f"Text block type: {block['class_name']}." +
+                            (" Previous lines on the page: " + " / ".join(prev) if prev else ""))
+                    else:
+                        correction_contexts.append(None)
                     self.logger.debug(f"Block {block['id']}: Texts differ, adding to correction batch")
             
             if batch_correction_inputs:
@@ -882,7 +944,7 @@ class ComicProcessor:
                         self.logger.debug(f"  OCR2: {batch_correction_inputs[i][1]}")
 
                 corrected_texts = await self.corrector.batch_correct_texts(
-                    batch_correction_inputs, language=self.source_lang
+                    batch_correction_inputs, contexts=correction_contexts, language=self.source_lang
                 )
 
                 for i, block in enumerate(blocks_needing_correction):
@@ -1011,14 +1073,17 @@ class ComicProcessor:
             if batch_texts:
                 self.logger.info(f"Translating {len(batch_texts)} blocks using built-in context generation")
 
+                guide_types = [self.translator.guide_class(t, self.class_condition) for t in batch_bubble_types]
                 translated_texts = await self.translator.batch_translate(
                     texts=batch_texts,
                     source_lang=self.source_lang,
                     target_lang=self.target_lang,
-                    bubble_types=batch_bubble_types,
-                    context_strategy="prev",
-                    context_window_size=3
+                    bubble_types=guide_types,
+                    context_strategy="prev" if self.context_window > 0 else None,
+                    context_window_size=max(self.context_window, 1)
                 )
+                for block, g in zip(blocks_to_translate, guide_types):
+                    block["translation_guide_class"] = g
 
                 for i, block in enumerate(blocks_to_translate):
                     if i < len(translated_texts):
@@ -1082,8 +1147,13 @@ class ComicProcessor:
                 "apply_separators": self.apply_separators,
                 "dual_ocr": self.dual_ocr,
                 "use_correction": self.use_correction,
-                "use_segmentation": self.use_segmentation
-            }
+                "use_segmentation": self.use_segmentation,
+                "correction_context": self.correction_context,
+                "class_condition": self.class_condition,
+                "context_window": self.context_window,
+                "arbitrate_punctuation": self.arbitrate_punctuation,
+            },
+            "provenance": self._provenance()
         }
 
         if output_dir:

@@ -29,6 +29,36 @@ class StyleTranslator:
     of comic text based on bubble types and surrounding context.
     """
     
+    # Mismatched guide per class for the wrong-class ablation; mirrors
+    # eval/translation_study/run_conditions.py so pipeline runs and study runs agree.
+    WRONG_CLASS = {
+        "speech_bubble": "scream_bubble", "scream_bubble": "think_bubble", "think_bubble": "scream_bubble",
+        "cloud_bubble": "spiked_bubble", "spiked_bubble": "cloud_bubble", "wiggle_bubble": "scream_bubble",
+        "hexagon_bubble": "wiggle_bubble", "sqare_bubble": "scream_bubble", "system_bubble": "wiggle_bubble",
+        "standalone_text": "system_bubble", "background_text": "scream_bubble", "title_panel": "think_bubble",
+        "sfx_sound": "speech_bubble",
+    }
+
+    @classmethod
+    def guide_class(cls, bubble_type: str, condition: str = "true") -> str:
+        """Class whose style guide is used: the detected one, none, or a mismatched one."""
+        if condition == "true":
+            return bubble_type
+        if condition == "none":
+            return "default"
+        if condition == "shuffled":
+            return cls.WRONG_CLASS.get(bubble_type, bubble_type)
+        raise ValueError(condition)
+
+    # The detector's label set spells the square class "sqare_bubble" while the
+    # style guides use "square_bubble". Before this alias, square blocks silently
+    # received the default guide (21 of 516 blocks in the chapter 3 and 4 runs).
+    CLASS_ALIASES = {"sqare_bubble": "square_bubble"}
+
+    def _guide_for(self, bubble_type: str) -> str:
+        key = self.CLASS_ALIASES.get(bubble_type, bubble_type)
+        return self.style_guides.get(key, self.style_guides.get("default", self.DEFAULT_FALLBACK))
+
     DEFAULT_FALLBACK = (
         "Translate this text naturally while preserving the original tone and meaning. "
         "Consider context and maintain any emphasis or special formatting from the original."
@@ -311,7 +341,7 @@ class StyleTranslator:
         if not text.strip():
             return ""
 
-        style_guide = self.style_guides.get(bubble_type, self.style_guides.get("default", self.DEFAULT_FALLBACK))
+        style_guide = self._guide_for(bubble_type)
         context_section = self._format_context_section(context)
 
         prompt = self.prompt_template.format(
@@ -421,7 +451,7 @@ class StyleTranslator:
                 logger.debug(f"Skipping empty text at index {i}")
                 continue
 
-            style_guide = self.style_guides.get(bubble_type, self.style_guides.get("default", self.DEFAULT_FALLBACK))
+            style_guide = self._guide_for(bubble_type)
             context_section = self._format_context_section(contexts[i])
 
             prompt = self.prompt_template.format(
