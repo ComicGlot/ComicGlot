@@ -30,9 +30,30 @@ import os
 #train24 - test_set , train_set v7, model yolo12m, 80 epochs  - predict
 #train25 - test_set , train_set v7, model yolo12s, 80 epochs  - predict
 
+#NEW
+#train10 - test_set , train_set v8, model yolo12s, 80 epochs
+#train14 - test_set , train_set v8, model yolo12s, 80 epochs (best tuned)
+#train16 - test_set , train_set v8, model yolo12s, 40 epochs (best tuned)
+#train18 - test_set , train_set v8, model yolo12m, 40 epochs (best tuned)
+#train22 - test_set , train_set v8, model yolo12m, 120 epochs (best tuned)
+#train27 - test_set , train_set v8, model yolo12l, 40 epochs (best tuned)
+#train32 - test_set , train_set v8, model yolo9m, 80 epochs (best tuned)
+#train33 - test_set , train_set v8, model yolo9m, 25 epochs (best tuned)
+#train34 - test_set , train_set v8, model yolo9s, 80 epochs (best tuned)
+
+#NEW 2
+#train26 - test_set , train_set v8, model yolo9l, 80 epochs (best tuned)
+#train28 - test_set , train_set v8, model yolo8m, 80 epochs (best tuned)
+#train31 - test_set , train_set v8, model yolo8l, 80 epochs (best tuned)
+#train34 - test_set , train_set v8, model yolo8s, 80 epochs (best tuned)
+#train36 - test_set , train_set v8, model yolo8n, 80 epochs (best tuned)
+
+#NEW 3
+#train39 - test_set , train_set v9, model yolo9m, 150 epochs (best tuned)
 
 if __name__ == '__main__':
-    model = YOLO("./runs/detect/train19/weights/best.pt")
+    #model = YOLO("./runs/detect/train19/weights/best.pt")
+    model = YOLO("./runs/detect/train39/weights/best.pt")
     
     folder = "./datasets/testing/3/"
     output_folder = "./datasets/predictions/1"

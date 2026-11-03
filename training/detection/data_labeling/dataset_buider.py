@@ -281,7 +281,7 @@ if __name__ == "__main__":
     MODEL_PATH = "E:/Projects/Python/ComicGlot/models/YOLO/best.pt"
     OUTPUT_DIR = "raw_yolo_dataset"
     
-    CONF = 0.5
+    CONF = 0.3
     IOU = 0.7
     
     builder = YOLODatasetBuilder(ROOT_FOLDER, MODEL_PATH)
