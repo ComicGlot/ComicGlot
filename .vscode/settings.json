@@ -1,6 +1,8 @@
 {
-  // Keeps VS Code, search and the Python language server away from generated data.
-  // training/recognition alone holds about 15 million files (synthetic OCR corpus).
+  // ComicGlot workspace settings. Keeps every extension away from generated data.
+  // training/recognition/synthtiger_gen/generated alone holds about 15 million images.
+
+  // ---- File watcher: never watch data, runs, weights or the venv ----
   "files.watcherExclude": {
     "**/.git/objects/**": true,
     "**/.venv/**": true,
@@ -17,13 +19,22 @@
     "**/training/detection/benchmark/**": true,
     "**/training/detection/data_labeling/misdetection_analysis/**": true,
     "**/training/detection/data_labeling/duplicate_analysis/**": true,
-    "**/runs/**": true,
     "**/saves/**": true,
     "**/models/**": true,
     "**/data/output/**": true,
     "**/data/chapters/**": true,
+    "**/reports/**": true,
+    "**/_to_delete/**": true,
     "**/claude/patch/**": true
   },
+
+  // ---- Explorer: hide only the folders nobody opens by hand ----
+  "files.exclude": {
+    "**/training/recognition/synthtiger_gen/generated": true,
+    "**/_to_delete": true
+  },
+
+  // ---- Search and Quick Open ----
   "search.exclude": {
     "**/.venv": true,
     "**/training/recognition/synthtiger_gen": true,
@@ -36,26 +47,37 @@
     "**/training/detection/roboflow": true,
     "**/training/detection/lightning_logs": true,
     "**/training/detection/data_labeling/misdetection_analysis": true,
-    "**/runs": true,
     "**/saves": true,
     "**/models": true,
     "**/data/output": true,
     "**/data/chapters": true,
-    "**/*.html": true
+    "**/reports": true,
+    "**/_to_delete": true
   },
   "search.followSymlinks": false,
   "search.useIgnoreFiles": true,
+
+  // ---- Python: one interpreter, no workspace-wide environment hunt ----
+  // The Python Environments extension searches "./**/.venv" by default, which walks the whole tree.
+  "python-envs.workspaceSearchPaths": ["./.venv"],
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+  "python.analysis.indexing": false,
+  "python.analysis.diagnosticMode": "openFilesOnly",
   "python.analysis.exclude": [
     "**/.venv/**",
     "training/recognition/**",
     "training/detection/datasets/**",
     "training/detection/runs/**",
-    "runs/**",
     "saves/**",
     "models/**",
-    "data/**"
+    "data/**",
+    "reports/**",
+    "_to_delete/**"
   ],
-  "python.analysis.diagnosticMode": "openFilesOnly",
-  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-  "git.autoRepositoryDetection": "openEditors"
+
+  // ---- Git: only the repository at the root ----
+  "git.autoRepositoryDetection": true,
+  "git.repositoryScanMaxDepth": 0,
+  "git.detectSubmodules": false,
+  "git.untrackedChanges": "separate"
 }
