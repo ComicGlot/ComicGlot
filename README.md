@@ -16,6 +16,7 @@ Unlike conventional OCR and translation pipelines, ComicGlot integrates bubble c
 - [Project Structure](#project-structure)
 - [Usage Examples](#usage-examples)
 - [Technical Details](#technical-details)
+- [Research and Evaluation Tools](#research-and-evaluation-tools)
 - [Training Your Own Models](#training-your-own-models)
 - [Contributing](#contributing)
 - [Citation](#citation)
@@ -39,8 +40,8 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install the package in development mode
-pip install -e .
+# Install the package in development mode (add [research] for the analysis tools)
+pip install -e ".[research]"
 ```
 
 ### Environment Configuration
@@ -68,7 +69,10 @@ processor.save_results(results, "path/to/output")
 ### Processing an Entire Chapter
 
 ```bash
-python -m comicglot.scripts.process_chapter --input path/to/chapter --output path/to/output
+python scripts/process_chapter.py --input path/to/chapter --output path/to/output \
+    --segmentation --dual-ocr --correction --translator claude --save-segments
+# ablation switches: --class-condition none|shuffled, --context-window 0,
+# --no-correction-context, --arbitrate-punctuation
 ```
 
 ## 📂 Project Structure
@@ -254,6 +258,18 @@ At the end you get the full processed JSON logging file, which can be further ut
     },
 ...
 ```
+
+## 🔬 Research and Evaluation Tools
+
+These folders hold the analysis and scoring code behind the results reported for ComicGlot. Nothing in them needs the pipeline's GPU models except where noted.
+
+| Folder | Contents |
+| --- | --- |
+| `research/` | Dataset audit, frozen-encoder probe of type separability, page grouping without titles, text-against-image analysis, an offline pipeline smoke test |
+| `eval/` | Detection scoring that matches Ultralytics 8.3 with per-class counts and intervals, a label-seeding check, a comparison with other open detectors, OCR ground-truth sheets and CER, and the tooling for a blind translation study (conditions, rater packets, analysis) |
+| `checks/` | Unit checks for reading order, separators, segmentation, scoring and prompts (`make check`) |
+
+Common commands are in the `Makefile` (`make help`).
 
 ## 🧠 Training Your Own Models
 
