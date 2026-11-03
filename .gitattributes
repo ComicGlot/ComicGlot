@@ -1,0 +1,18 @@
+# Store text files with LF in the repository; Git for Windows checks them out with CRLF.
+* text=auto
+
+# Never touch binary files.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.pt binary
+*.pth binary
+*.safetensors binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.rar binary
+
+# Journal class file uses old Mac line endings; keep it byte for byte.
+paper/springer/sn-jnl.cls -text

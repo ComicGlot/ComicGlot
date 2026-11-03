@@ -1,34 +1,25 @@
+# ---- Secrets: never commit ----
 .env
-/.venv
-__pycache__
-/*.pt
-*.ttf
+.env.*
+!.env.example
 
-training/detection/datasets/*
-training/detection/lightning_logs/*
-training/detection/roboflow/*
-training/detection/runs/*
-saves/*
-/ko-trocr-cc100/
+# ---- Python and editors ----
+/.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.vscode/*
+!.vscode/settings.json
 
-tests/
-training/detection/bubble_detection/object_detection.ipynb
-training/detection/benchmark/*
-training/recognition/synthtiger_gen/*
-training/recognition/ko_corpus/*
-training/recognition/splitted_corpus/*
-training/recognition/transformer_training/trocr-finetuned/*
-training/recognition/transformer_training/ko-trocr-cg2m/*
-training/recognition/transformer_training/ko-trocr-cg2m-saves/*
-
-training/recognition/tokenizer_training/ko-trocr-cc100
-training/recognition/tokenizer_training/ko_trocr_cc100_tokenizer
-training/recognition/tokenizer_training/trocr-small-korean
-training/recognition/tokenizer_training/custom_trocr_tokenizer/*
-
-data/output/*
-data/chapters/*
-
+# ---- Model weights and checkpoints (not released yet) ----
+*.pt
+*.pth
+*.safetensors
+*.onnx
+*.ckpt
+*.bin
+*.rar
 models/.EasyOCR/model/*
 models/CRAFT/*
 models/CRAFT_pytorch/*
@@ -36,6 +27,44 @@ models/DETR-RESNET-50/*
 models/efficientdet_d4/*
 models/KoTrOCR/*
 models/YOLO/*
+saves/
+/ko-trocr-cc100/
 
+# ---- Fonts (licensed) ----
+*.ttf
+
+# ---- Datasets, training runs and generated corpora ----
+runs/
+training/detection/datasets/*
+training/detection/lightning_logs/*
+training/detection/roboflow/*
+training/detection/runs/*
+training/detection/benchmark/*
+training/detection/bubble_detection/object_detection.ipynb
+training/detection/data_labeling/misdetection_analysis/
+training/detection/data_labeling/duplicate_analysis/
+training/recognition/synthtiger_gen/*
+training/recognition/ko_corpus/*
+training/recognition/splitted_corpus/*
+training/recognition/transformer_training/trocr-finetuned/*
+training/recognition/transformer_training/ko-trocr-cg2m/*
+training/recognition/transformer_training/ko-trocr-cg2m-saves/*
+training/recognition/tokenizer_training/ko-trocr-cc100
+training/recognition/tokenizer_training/ko_trocr_cc100_tokenizer
+training/recognition/tokenizer_training/trocr-small-korean
+training/recognition/tokenizer_training/custom_trocr_tokenizer/*
 raw_yolo_dataset/
+magician_bubble_dataset/
+bookeater_cloud_bubble_dataset/
+
+# ---- Pipeline inputs and outputs (page images are not ours to publish) ----
+data/output/*
+data/chapters/*
+data/bubbles/image.png
+
+# ---- Local working folders ----
+tests/
+reports/
+claude/
+_to_delete/
 replacements.txt
