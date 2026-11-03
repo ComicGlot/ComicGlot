@@ -1,0 +1,61 @@
+{
+  // Keeps VS Code, search and the Python language server away from generated data.
+  // training/recognition alone holds about 15 million files (synthetic OCR corpus).
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.venv/**": true,
+    "**/__pycache__/**": true,
+    "**/training/recognition/synthtiger_gen/**": true,
+    "**/training/recognition/ko_corpus/**": true,
+    "**/training/recognition/splitted_corpus/**": true,
+    "**/training/recognition/tokenizer_training/**": true,
+    "**/training/recognition/transformer_training/**": true,
+    "**/training/detection/datasets/**": true,
+    "**/training/detection/runs/**": true,
+    "**/training/detection/roboflow/**": true,
+    "**/training/detection/lightning_logs/**": true,
+    "**/training/detection/benchmark/**": true,
+    "**/training/detection/data_labeling/misdetection_analysis/**": true,
+    "**/training/detection/data_labeling/duplicate_analysis/**": true,
+    "**/runs/**": true,
+    "**/saves/**": true,
+    "**/models/**": true,
+    "**/data/output/**": true,
+    "**/data/chapters/**": true,
+    "**/claude/patch/**": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/training/recognition/synthtiger_gen": true,
+    "**/training/recognition/ko_corpus": true,
+    "**/training/recognition/splitted_corpus": true,
+    "**/training/recognition/tokenizer_training": true,
+    "**/training/recognition/transformer_training": true,
+    "**/training/detection/datasets": true,
+    "**/training/detection/runs": true,
+    "**/training/detection/roboflow": true,
+    "**/training/detection/lightning_logs": true,
+    "**/training/detection/data_labeling/misdetection_analysis": true,
+    "**/runs": true,
+    "**/saves": true,
+    "**/models": true,
+    "**/data/output": true,
+    "**/data/chapters": true,
+    "**/*.html": true
+  },
+  "search.followSymlinks": false,
+  "search.useIgnoreFiles": true,
+  "python.analysis.exclude": [
+    "**/.venv/**",
+    "training/recognition/**",
+    "training/detection/datasets/**",
+    "training/detection/runs/**",
+    "runs/**",
+    "saves/**",
+    "models/**",
+    "data/**"
+  ],
+  "python.analysis.diagnosticMode": "openFilesOnly",
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+  "git.autoRepositoryDetection": "openEditors"
+}
