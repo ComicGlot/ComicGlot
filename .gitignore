@@ -68,3 +68,11 @@ reports/
 claude/
 _to_delete/
 replacements.txt
+
+
+# ---- Local paper and assistant files (kept elsewhere) ----
+/paper/
+/notes/
+CLAUDE.md
+CLAUDE.local.md
+.claude/

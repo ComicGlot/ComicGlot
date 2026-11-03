@@ -1,0 +1,13 @@
+# Light environment for research/, eval/, checks/ and the paper figures.
+# The full pipeline needs requirements.txt (UTF-16, frozen on Windows) or `pip install -e .`.
+numpy
+opencv-python-headless
+pillow
+natsort
+python-dotenv
+scikit-learn
+scipy
+onnxruntime
+openpyxl
+matplotlib
+pytest

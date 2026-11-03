@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comicglot"
+version = "0.2.0"
+description = "Detection, recognition and class-conditioned translation of text carriers in Korean webtoons"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
+# Core pipeline. Pin exact versions from requirements.txt when reproducing a published run.
+dependencies = [
+  "numpy",
+  "opencv-python",
+  "pillow",
+  "natsort",
+  "python-dotenv",
+  "torch",
+  "transformers",
+  "ultralytics",
+  "easyocr",
+  "anthropic",
+]
+
+[project.optional-dependencies]
+# Analysis and evaluation tooling in research/ and eval/
+research = ["scikit-learn", "scipy", "onnxruntime", "openpyxl", "matplotlib"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["comicglot*", "research*", "eval*"]
+
+[tool.pytest.ini_options]
+testpaths = ["checks"]
+addopts = "-q"
