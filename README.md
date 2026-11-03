@@ -30,7 +30,7 @@ ComicGlot requires Python 3.8+ and benefits significantly from GPU acceleration 
 
 ```bash
 # Clone the repository
-git clone https://github.com/0LuminaX0/ComicGlot.git
+git clone https://github.com/ComicGlot/ComicGlot.git
 cd comicglot
 
 # Create and activate a virtual environment
@@ -293,7 +293,7 @@ If you use ComicGlot in your research, please cite:
   title = {ComicGlot: Intelligent System for Segmentation and Stylized Translation 
            of Hieroglyphic Text in Multimedia Comics},
   year = {2025},
-  howpublished = {\url{https://github.com/0LuminaX0/ComicGlot}}
+  howpublished = {\url{https://github.com/ComicGlot/ComicGlot}}
 }
 ```
 
