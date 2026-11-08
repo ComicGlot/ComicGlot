@@ -18,6 +18,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from comicglot.comic_processor import ComicProcessor
+from comicglot.utils.cli import optional_name
 
 load_dotenv()
 
@@ -200,6 +201,10 @@ async def run_with_args():
                         help="Path to input image, chapter directory, or base directory")
     parser.add_argument("--output", "-o", type=str, default=None,
                         help="Path to output directory")
+    parser.add_argument("--run-tag", type=str, default="comicglot",
+                        help="Name of the run folder: <tag>_runN inside --output (default comicglot). "
+                             "Run folders name the blocks (<run>/<frame>/<block>), so give each chapter its own tag "
+                             "when several chapters share one output folder.")
     parser.add_argument("--batch", "-b", action="store_true",
                         help="Process in batch mode (input is a base directory containing chapters)")
     
@@ -210,7 +215,7 @@ async def run_with_args():
     parser.add_argument("--recognition", "-r", type=str, default="trocr-korean",
                         choices=["trocr-korean", "trocr-base", "easyocr"],
                         help="Recognition model to use")
-    parser.add_argument("--translator", "-t", type=str, default=None,
+    parser.add_argument("--translator", "-t", type=optional_name, default=None,
                         choices=[None, "claude"],
                         help="Translator to use (None for no translation)")
     
@@ -258,11 +263,17 @@ async def run_with_args():
                         help="Do not give the OCR arbiter the block class and previous lines")
     parser.add_argument("--arbitrate-punctuation", action="store_true",
                         help="Arbitrate readings that differ only in punctuation")
+    parser.add_argument("--llm-provider", choices=["anthropic", "openrouter"], default=None,
+                        help="Provider for the arbiter and the translator (default: LLM_PROVIDER, else anthropic)")
+    parser.add_argument("--llm-model", default=None,
+                        help="Model for the arbiter and the translator: an OpenRouter slug such as "
+                             "anthropic/claude-sonnet-4.5, or a Claude name (default: the published models)")
 
     args = parser.parse_args()
     PIPELINE_OPTIONS.update(class_condition=args.class_condition, context_window=args.context_window,
                             correction_context=not args.no_correction_context,
-                            arbitrate_punctuation=args.arbitrate_punctuation)
+                            arbitrate_punctuation=args.arbitrate_punctuation,
+                            llm_provider=args.llm_provider, llm_model=args.llm_model)
     
     if args.save_all:
         args.save_segments = True
@@ -274,7 +285,7 @@ async def run_with_args():
     output_path = args.output
     if output_path:
         from comicglot.utils.file_utils import get_next_run_folder
-        output_path = get_next_run_folder(output_path, "comicglot")
+        output_path = get_next_run_folder(output_path, args.run_tag)
         logger.info(f"Results will be saved to: {output_path}")
     
     try:
@@ -353,6 +364,8 @@ async def run_direct():
         context_window=int(os.getenv("CONTEXT_WINDOW", "3")),
         correction_context=os.getenv("CORRECTION_CONTEXT", "True").lower() in ("true", "1", "yes"),
         arbitrate_punctuation=os.getenv("ARBITRATE_PUNCTUATION", "False").lower() in ("true", "1", "yes"),
+        llm_provider=os.getenv("LLM_PROVIDER") or None,
+        llm_model=os.getenv("LLM_MODEL") or None,
     )
     
     # Save options

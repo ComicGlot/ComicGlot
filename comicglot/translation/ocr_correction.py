@@ -34,6 +34,7 @@ class OCRCorrector:
         model_name: str = "ocr_correction", # "ocr_correction"
         system_prompt: Optional[str] = None,
         temperature: float = 0.2,
+        provider: Optional[str] = None,
     ):
         """
         Initialize the OCR corrector.
@@ -46,7 +47,8 @@ class OCRCorrector:
         """
         self.llm_processor = llm_processor or LLMProcessor(
             model_name=model_name,
-            temperature=temperature
+            temperature=temperature,
+            provider=provider,
         )
 
         self.system_prompt = None

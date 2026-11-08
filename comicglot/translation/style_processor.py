@@ -70,6 +70,7 @@ class StyleTranslator:
         model_name: str = "translation",
         # system_prompt: Optional[str] = None,
         temperature: float = 0.7,
+        provider: Optional[str] = None,
         style_guides_path: str = "style_guides.json"
     ):
         """
@@ -84,7 +85,8 @@ class StyleTranslator:
         """
         self.llm_processor = llm_processor or LLMProcessor(
             model_name=model_name,
-            temperature=temperature
+            temperature=temperature,
+            provider=provider,
         )
         
         self.system_prompt = None

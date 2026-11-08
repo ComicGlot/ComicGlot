@@ -33,3 +33,13 @@ def test_narrow_image_can_be_cut_without_resizing(tmp_path):
     res = segment_by_seam_carving(str(tmp_path), min_height=100, resize=False, carving_step=10)
     cuts = [end for _, end in res["segment_boundaries"][:-1]]
     assert any(300 < c < 600 for c in cuts), cuts
+
+
+def test_saved_segments_are_read_back_by_the_same_names():
+    """The processor must read segment i from the file the cutter wrote for segment i (0-based)."""
+    from comicglot.utils.seam_segmentor import segment_file_name
+    import comicglot.comic_processor.comic_processor as cp
+
+    assert segment_file_name(0) == "segment_000.png"
+    src = open(cp.__file__, encoding="utf-8").read()
+    assert 'f"segment_{i+1:03d}.png"' not in src and "segment_file_name(i)" in src

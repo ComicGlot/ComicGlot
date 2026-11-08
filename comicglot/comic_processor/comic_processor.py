@@ -24,7 +24,7 @@ from comicglot.utils.data_types import TextBlock
 from comicglot.utils.spatial_processor import process_text_blocks
 from comicglot.utils.visualization import draw_boxes_with_labels, visualize_separator_lines
 from comicglot.utils.file_utils import load_image, save_image, get_next_run_folder
-from comicglot.utils.seam_segmentor import segment_by_seam_carving
+from comicglot.utils.seam_segmentor import segment_by_seam_carving, segment_file_name
 
 
 class ComicProcessor:
@@ -49,7 +49,9 @@ class ComicProcessor:
         correction_context: bool = True,
         class_condition: str = "true",
         context_window: int = 3,
-        arbitrate_punctuation: bool = False
+        arbitrate_punctuation: bool = False,
+        llm_provider: Optional[str] = None,
+        llm_model: Optional[str] = None,
     ):
         """
         Initialize the comic processor.
@@ -95,6 +97,9 @@ class ComicProcessor:
         self.class_condition = class_condition
         self.context_window = context_window
         self.arbitrate_punctuation = arbitrate_punctuation
+        # None keeps the published behaviour: Anthropic, with the task's default model.
+        self.llm_provider = llm_provider
+        self.llm_model = llm_model
         self.detection_model_path = detection_model_path
         self.recognition_model_path = recognition_model_path
 
@@ -115,7 +120,7 @@ class ComicProcessor:
             self.secondary_recognizer = None
             
         if self.use_correction:
-            self.corrector = OCRCorrector()
+            self.corrector = OCRCorrector(model_name=self.llm_model or "ocr_correction", provider=self.llm_provider)
         else:
             self.corrector = None
             
@@ -248,7 +253,7 @@ class ComicProcessor:
         
         if translator_type.lower() == "claude":
             from comicglot.translation.style_processor import StyleTranslator
-            return StyleTranslator(model_name="translation")
+            return StyleTranslator(model_name=self.llm_model or "translation", provider=self.llm_provider)
         else:
             self.logger.warning(f"Unknown translator type: {translator_type}")
             return None
@@ -384,9 +389,9 @@ class ComicProcessor:
         det_path = self.detection_model_path or os.getenv("YOLO_MODEL_PATH")
         llm = {}
         if getattr(self, "corrector", None) is not None:
-            llm["correction"] = {"model": self.corrector.llm_processor.model_name, "temperature": self.corrector.temperature}
+            llm["correction"] = {"provider": getattr(self.corrector.llm_processor, "provider", "anthropic"), "model": self.corrector.llm_processor.model_name, "temperature": self.corrector.temperature}
         if getattr(self, "translator", None) is not None and hasattr(self.translator, "llm_processor"):
-            llm["translation"] = {"model": self.translator.llm_processor.model_name, "temperature": self.translator.temperature}
+            llm["translation"] = {"provider": getattr(self.translator.llm_processor, "provider", "anthropic"), "model": self.translator.llm_processor.model_name, "temperature": self.translator.temperature}
         return {
             "git_commit": commit,
             "detector_weights": det_path, "detector_sha256_16": sha(det_path) if det_path else None,
@@ -395,6 +400,68 @@ class ComicProcessor:
             "style_guides_sha256_16": sha(os.path.join("data", "prompts", "style_guides.json")),
             "correction_prompt_sha256_16": sha(os.path.join("data", "prompts", "correction_prompt.txt")),
         }
+
+    async def _arbitrate_blocks(self, all_blocks: List[Dict[str, Any]]) -> None:
+        """STEP 4 on a list of blocks in reading order: sets corrected_text on every block.
+
+        Readings that agree (see _are_texts_equivalent) are kept; if one reading is empty the other is kept;
+        the rest go to the LLM arbiter with the block type and the previous lines as context. Used by
+        process_chapter and by scripts/arbitrate_run.py, which applies it to a saved run.
+        """
+        batch_correction_inputs = []
+        blocks_needing_correction = []
+        correction_contexts = []
+
+        for block in all_blocks:
+            primary_text = block.get("text", "").strip()
+            secondary_text = block.get("secondary_text", "").strip()
+
+            # Skip correction if texts are identical or too similar
+            if self._are_texts_equivalent(primary_text, secondary_text):
+                block["corrected_text"] = primary_text
+                self.logger.debug(f"Block {block['id']}: Texts are equivalent, skipping correction")
+            elif not primary_text or not secondary_text:
+                # Skip if either OCR result is empty
+                block["corrected_text"] = primary_text or secondary_text
+                self.logger.debug(f"Block {block['id']}: One OCR result is empty, using non-empty result")
+            else:
+                # Both texts have content and they're different - needs correction
+                batch_correction_inputs.append([primary_text, secondary_text])
+                blocks_needing_correction.append(block)
+                if self.correction_context:
+                    idx = all_blocks.index(block)
+                    prev = [b.get("corrected_text") or b.get("text", "") for b in all_blocks[max(0, idx - 3):idx]]
+                    prev = [t for t in prev if t]
+                    correction_contexts.append(
+                        f"Text block type: {block['class_name']}." +
+                        (" Previous lines on the page: " + " / ".join(prev) if prev else ""))
+                else:
+                    correction_contexts.append(None)
+                self.logger.debug(f"Block {block['id']}: Texts differ, adding to correction batch")
+
+        if batch_correction_inputs:
+            self.logger.info(f"Sending {len(batch_correction_inputs)} blocks for OCR correction")
+
+            if len(batch_correction_inputs) > 0:
+                sample_count = min(3, len(batch_correction_inputs))
+                for i in range(sample_count):
+                    self.logger.debug(f"Correction sample {i+1}:")
+                    self.logger.debug(f"  OCR1: {batch_correction_inputs[i][0]}")
+                    self.logger.debug(f"  OCR2: {batch_correction_inputs[i][1]}")
+
+            corrected_texts = await self.corrector.batch_correct_texts(
+                batch_correction_inputs, contexts=correction_contexts, language=self.source_lang
+            )
+
+            for i, block in enumerate(blocks_needing_correction):
+                if i < len(corrected_texts):
+                    block["corrected_text"] = corrected_texts[i]
+                    self.logger.debug(f"Block {block['id']}: Corrected text: {corrected_texts[i]}")
+                else:
+                    block["corrected_text"] = block.get("text", "")
+                    self.logger.warning(f"Block {block['id']}: No correction received, using primary OCR")
+        else:
+            self.logger.info("No texts need correction")
 
     def _are_texts_equivalent(self, text1: str, text2: str) -> bool:
         """
@@ -607,7 +674,9 @@ class ComicProcessor:
                 
                 if save_segments and segments_dir:
                     for i in range(len(segments)):
-                        segment_filename = f"segment_{i+1:03d}.png"
+                        # Same name as the cutter wrote (0-based); "i+1" here made frame k read segment k+1,
+                        # so the first segment was skipped and the last frame failed (fixed 8 Nov 2026).
+                        segment_filename = segment_file_name(i)
                         segment_path = os.path.join(segments_dir, segment_filename)
                         segment_paths.append(segment_path)
 
@@ -902,60 +971,7 @@ class ComicProcessor:
         if self.use_correction and self.corrector and self.dual_ocr:
             self.logger.info("STEP 4: OCR correction")
             
-            batch_correction_inputs = []
-            blocks_needing_correction = []
-            correction_contexts = []
-            
-            for block in all_blocks:
-                primary_text = block.get("text", "").strip()
-                secondary_text = block.get("secondary_text", "").strip()
-                
-                # Skip correction if texts are identical or too similar
-                if self._are_texts_equivalent(primary_text, secondary_text):
-                    block["corrected_text"] = primary_text
-                    self.logger.debug(f"Block {block['id']}: Texts are equivalent, skipping correction")
-                elif not primary_text or not secondary_text:
-                    # Skip if either OCR result is empty
-                    block["corrected_text"] = primary_text or secondary_text
-                    self.logger.debug(f"Block {block['id']}: One OCR result is empty, using non-empty result")
-                else:
-                    # Both texts have content and they're different - needs correction
-                    batch_correction_inputs.append([primary_text, secondary_text])
-                    blocks_needing_correction.append(block)
-                    if self.correction_context:
-                        idx = all_blocks.index(block)
-                        prev = [b.get("corrected_text") or b.get("text", "") for b in all_blocks[max(0, idx - 3):idx]]
-                        prev = [t for t in prev if t]
-                        correction_contexts.append(
-                            f"Text block type: {block['class_name']}." +
-                            (" Previous lines on the page: " + " / ".join(prev) if prev else ""))
-                    else:
-                        correction_contexts.append(None)
-                    self.logger.debug(f"Block {block['id']}: Texts differ, adding to correction batch")
-            
-            if batch_correction_inputs:
-                self.logger.info(f"Sending {len(batch_correction_inputs)} blocks for OCR correction")
-
-                if len(batch_correction_inputs) > 0:
-                    sample_count = min(3, len(batch_correction_inputs))
-                    for i in range(sample_count):
-                        self.logger.debug(f"Correction sample {i+1}:")
-                        self.logger.debug(f"  OCR1: {batch_correction_inputs[i][0]}")
-                        self.logger.debug(f"  OCR2: {batch_correction_inputs[i][1]}")
-
-                corrected_texts = await self.corrector.batch_correct_texts(
-                    batch_correction_inputs, contexts=correction_contexts, language=self.source_lang
-                )
-
-                for i, block in enumerate(blocks_needing_correction):
-                    if i < len(corrected_texts):
-                        block["corrected_text"] = corrected_texts[i]
-                        self.logger.debug(f"Block {block['id']}: Corrected text: {corrected_texts[i]}")
-                    else:
-                        block["corrected_text"] = block.get("text", "")
-                        self.logger.warning(f"Block {block['id']}: No correction received, using primary OCR")
-            else:
-                self.logger.info("No texts need correction")
+            await self._arbitrate_blocks(all_blocks)
 
             if output_dir and save_recognition:
                 self.logger.info("Creating recognition visualizations with corrected text")
@@ -1152,6 +1168,8 @@ class ComicProcessor:
                 "class_condition": self.class_condition,
                 "context_window": self.context_window,
                 "arbitrate_punctuation": self.arbitrate_punctuation,
+                "llm_provider": self.llm_provider or "anthropic",
+                "llm_model": self.llm_model,
             },
             "provenance": self._provenance()
         }

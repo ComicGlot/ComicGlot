@@ -9,6 +9,11 @@ from natsort import natsorted
 from comicglot.utils.file_utils import load_image
 from comicglot.utils.image_utils import resize_image, create_empty_image
 
+
+def segment_file_name(i: int) -> str:
+    """File name of the i-th segment (0-based); the one place that defines it, for the cutter and the processor."""
+    return f"segment_{i:03d}.png"
+
 def segment_by_seam_carving(
     input_path: str, 
     min_height: int = 800, 
@@ -137,7 +142,7 @@ def segment_by_seam_carving(
 
     if save_crops:
         for i, segment in enumerate(segments):
-            output_file = os.path.join(output_path, f"segment_{i:03d}.png")
+            output_file = os.path.join(output_path, segment_file_name(i))
             cv2.imwrite(output_file, segment)
             logging.info(f"Saved segment to: {output_file}")
     

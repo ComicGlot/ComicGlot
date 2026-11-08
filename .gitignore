@@ -60,6 +60,8 @@ bookeater_cloud_bubble_dataset/
 # ---- Pipeline inputs and outputs (page images are not ours to publish) ----
 data/output/*
 data/chapters/*
+# study material: sampled frames, readings, translations, exports (page images belong to their publishers)
+data/study*/
 data/bubbles/image.png
 
 # ---- Local working folders ----

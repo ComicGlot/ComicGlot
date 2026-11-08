@@ -3,6 +3,10 @@ LLM Utilities module for ComicGlot.
 
 This module provides utility functions for interacting with Large Language Models,
 particularly Claude, for various text processing tasks in the ComicGlot pipeline.
+
+Two providers: "anthropic" (default; the published runs) and "openrouter" (OpenAI-compatible API at
+https://openrouter.ai/api/v1, key in OPENROUTER_API_KEY, model given as an OpenRouter slug such as
+"anthropic/claude-sonnet-4.5"). The provider comes from the constructor, else LLM_PROVIDER, else anthropic.
 """
 
 import os
@@ -17,6 +21,8 @@ try:
     from anthropic import Anthropic
 except ImportError:
     logging.warning("Anthropic package not installed. Please install with: pip install anthropic")
+
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Load environment variables
 load_dotenv()
@@ -63,7 +69,8 @@ class LLMProcessor:
         model_name: str = "claude-balanced",
         api_key: Optional[str] = None,
         max_tokens: int = 1024,
-        temperature: float = 0.3
+        temperature: float = 0.3,
+        provider: Optional[str] = None,
     ):
         """
         Initialize the LLM processor.
@@ -73,8 +80,13 @@ class LLMProcessor:
             api_key: API key for the LLM service (if None, read from environment)
             max_tokens: Maximum number of tokens to generate
             temperature: Temperature parameter for generation (0.0-1.0)
+            provider: "anthropic" (default) or "openrouter"; None reads LLM_PROVIDER
         """
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        self.provider = (provider or os.getenv("LLM_PROVIDER") or "anthropic").lower()
+        if self.provider not in ("anthropic", "openrouter"):
+            raise ValueError(f"Unknown LLM provider: {self.provider}")
+        key_name = "OPENROUTER_API_KEY" if self.provider == "openrouter" else "ANTHROPIC_API_KEY"
+        self.api_key = api_key or os.getenv(key_name)
         if not self.api_key:
             logger.warning("No API key provided for LLM services.")
 
@@ -94,6 +106,16 @@ class LLMProcessor:
         Returns:
             Resolved model name with full version
         """
+        if getattr(self, "provider", "anthropic") == "openrouter":
+            # OpenRouter takes provider/model slugs. A task name ("translation", "ocr_correction")
+            # falls back to OPENROUTER_MODEL so a run can be switched over with environment variables.
+            if "/" in model_name:
+                return model_name
+            slug = os.getenv("OPENROUTER_MODEL")
+            if not slug:
+                raise ValueError(f"OpenRouter needs a model slug (e.g. anthropic/claude-sonnet-4.5); got '{model_name}' and no OPENROUTER_MODEL")
+            return slug
+
         if model_name.lower() in CLAUDE_MODELS:
             resolved_name = CLAUDE_MODELS[model_name.lower()]
             logger.info(f"Resolved model name '{model_name}' to '{resolved_name}'")
@@ -107,6 +129,11 @@ class LLMProcessor:
     
     def _init_clients(self):
         """Initialize API clients based on available API keys."""
+        self.anthropic_client = None
+        if self.provider == "openrouter":
+            if self.api_key:
+                logger.info(f"Using OpenRouter with model: {self.model_name}")
+            return
         if self.api_key:
             try:
                 self.anthropic_client = Anthropic(api_key=self.api_key)
@@ -141,11 +168,15 @@ class LLMProcessor:
         Raises:
             RuntimeError: If no Anthropic client is available or the request fails
         """
-        if not self.anthropic_client:
-            raise RuntimeError("Anthropic client not available. Check your API key.")
-
         if model:
             model = self._resolve_model_name(model)
+
+        if self.provider == "openrouter":
+            return self._openrouter_chat(prompt, model or self.model_name, max_tokens or self.max_tokens,
+                                         self.temperature if temperature is None else temperature)
+
+        if not self.anthropic_client:
+            raise RuntimeError("Anthropic client not available. Check your API key.")
             
         try:
             response = self.anthropic_client.messages.create(
@@ -164,6 +195,32 @@ class LLMProcessor:
             logger.error(f"Error in Claude API request: {str(e)}")
             raise RuntimeError(f"Failed to get response from Claude: {str(e)}")
     
+    def _openrouter_chat(self, prompt: str, model: str, max_tokens: int, temperature: float, retries: int = 4) -> str:
+        """One chat completion through OpenRouter, retried on rate limits and server errors."""
+        import requests
+        if not self.api_key:
+            raise RuntimeError("OPENROUTER_API_KEY is not set")
+        body = {"model": model, "max_tokens": max_tokens, "temperature": temperature,
+                "messages": [{"role": "user", "content": prompt}]}
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json", "X-Title": "ComicGlot"}
+        last = ""
+        for attempt in range(retries + 1):
+            try:
+                r = requests.post(OPENROUTER_URL, json=body, headers=headers, timeout=120)
+            except requests.RequestException as e:
+                last = str(e)
+            else:
+                if r.status_code == 200:
+                    data = r.json()
+                    if data.get("error"):
+                        raise RuntimeError(f"OpenRouter error: {str(data['error'])[:300]}")
+                    return (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+                last = f"HTTP {r.status_code}: {r.text[:300]}"
+                if r.status_code not in (408, 429, 500, 502, 503, 504):
+                    break
+            time.sleep(min(30, 2 ** attempt))
+        raise RuntimeError(f"OpenRouter request failed: {last}")
+
     def process_with_claude_sync(
         self,
         prompt: str,
@@ -215,6 +272,11 @@ class LLMProcessor:
         resolved_model = self._resolve_model_name(model) if model else self.model_name
         max_tokens_to_use = max_tokens or self.max_tokens
         temperature_to_use = temperature or self.temperature
+
+        if self.provider == "openrouter":
+            # No batch API: bounded concurrent requests.
+            return await self._fallback_batch_process(prompts, resolved_model, max_tokens_to_use,
+                                                      self.temperature if temperature is None else temperature)
 
         try:
             batch_requests = []
@@ -269,7 +331,7 @@ class LLMProcessor:
 
             if total_wait_time >= max_wait_time:
                 logger.warning(f"Batch processing timed out after {total_wait_time}s")
-                return await self._fallback_batch_process(prompts, resolved_model, resolved_max_tokens, resolved_temperature)
+                return await self._fallback_batch_process(prompts, resolved_model, max_tokens_to_use, temperature_to_use)
 
             ordered_results = []
             for i in range(len(prompts)):
@@ -280,7 +342,7 @@ class LLMProcessor:
         except Exception as e:
             logger.error(f"Error in batch processing: {str(e)}")
             # Fallback to regular processing
-            return await self._fallback_batch_process(prompts, resolved_model, resolved_max_tokens, resolved_temperature)
+            return await self._fallback_batch_process(prompts, resolved_model, max_tokens_to_use, temperature_to_use)
     
     def batch_process_with_claude_sync(
         self,
@@ -315,7 +377,6 @@ class LLMProcessor:
                     model=model,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    concurrency_limit=concurrency_limit
                 )
             )
         finally:
