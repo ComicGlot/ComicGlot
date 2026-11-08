@@ -14,7 +14,11 @@ mix into translation scores. The paper should use "gt".
 Every call is logged to <out>/calls.jsonl with the full prompt, model id,
 temperature and raw response, so the study can be audited and re-run.
 
-Needs ANTHROPIC_API_KEY. --dry-run writes the prompts without calling the API.
+Needs ANTHROPIC_API_KEY, or OPENROUTER_API_KEY with --provider openrouter (then --model is an
+OpenRouter slug such as anthropic/claude-sonnet-4.5, and the provider is logged with every call).
+--dry-run writes the prompts to <out>/prompts.jsonl without calling any API; calls.jsonl only ever
+holds real answers, and a call counts as done once it has a translation, so an interrupted run
+picks up where it stopped.
 
 Usage:
     python -m eval.translation_study.run_conditions --runs RUN.json ... --sample sample.csv \
@@ -122,6 +126,33 @@ def call_claude(client, model, prompt: Dict, temperature: float, image_root: Opt
     return "".join(part.text for part in msg.content if getattr(part, "type", "") == "text")
 
 
+def call_openrouter(model, prompt: Dict, temperature: float, image_root: Optional[Path]) -> str:
+    import requests
+    content = [{"type": "text", "text": prompt["text"]}]
+    if prompt["image"]:
+        if image_root is None:
+            raise SystemExit("page_vlm needs --project-root to find segment images")
+        from eval.make_ocr_gt_sheet import local_path
+        data = base64.b64encode(open(local_path(prompt["image"], image_root), "rb").read()).decode()
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{data}"}})
+    body = {"model": model, "max_tokens": 1024, "temperature": temperature,
+            "messages": [{"role": "user", "content": content if prompt["image"] else prompt["text"]}]}
+    headers = {"Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}", "X-Title": "ComicGlot"}
+    last = ""
+    for attempt in range(5):
+        try:
+            r = requests.post("https://openrouter.ai/api/v1/chat/completions", json=body, headers=headers, timeout=180)
+            if r.status_code == 200 and not r.json().get("error"):
+                return (r.json().get("choices") or [{}])[0].get("message", {}).get("content") or ""
+            last = f"HTTP {r.status_code}: {r.text[:300]}"
+            if r.status_code not in (408, 429, 500, 502, 503, 504):
+                break
+        except requests.RequestException as e:
+            last = str(e)
+        time.sleep(min(30, 2 ** attempt))
+    raise RuntimeError(f"OpenRouter request failed: {last}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--runs", type=Path, nargs="+", required=True)
@@ -131,6 +162,8 @@ def main() -> None:
     ap.add_argument("--conditions", nargs="+",
                     default=["true_class", "no_class", "wrong_class", "no_context", "page_vlm"])
     ap.add_argument("--model", required=True, help="exact model id; recorded with every call")
+    ap.add_argument("--provider", choices=["anthropic", "openrouter"], default="anthropic")
+    ap.add_argument("--workers", type=int, default=1, help="parallel requests")
     ap.add_argument("--temperature", type=float, default=0.7, help="pipeline default is 0.7")
     ap.add_argument("--src", default="ko")
     ap.add_argument("--tgt", default="en")
@@ -150,31 +183,50 @@ def main() -> None:
         return gt.get(uid) if args.source == "gt" else blocks[uid].get("corrected_text") or blocks[uid].get("text")
 
     items = [r["block_uid"] for r in csv.DictReader(open(args.sample, encoding="utf-8-sig"))]
+    unknown = [u for u in items if u not in blocks]
+    if unknown:
+        raise SystemExit(f"{len(unknown)} sample blocks are not in --runs, e.g. {unknown[:3]}")
     items = [u for u in items if text_of(u)]
     args.out.mkdir(parents=True, exist_ok=True)
     client = None
-    if not args.dry_run:
+    if not args.dry_run and args.provider == "anthropic":
         from anthropic import Anthropic
         client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    log = args.out / ("prompts.jsonl" if args.dry_run else "calls.jsonl")
     done = set()
-    log = args.out / "calls.jsonl"
-    if log.exists():
-        done = {(json.loads(l)["block_uid"], json.loads(l)["condition"]) for l in open(log, encoding="utf-8")}
-    with open(log, "a", encoding="utf-8") as fh:
-        for uid in items:
-            for cond in args.conditions:
-                if (uid, cond) in done:
-                    continue
-                prompt = build_prompt(cond, uid, order, blocks, text_of, args.src, args.tgt)
-                raw = "" if args.dry_run else call_claude(client, args.model, prompt, args.temperature, args.project_root)
-                out = raw.split("TRANSLATED_TEXT:", 1)[1].strip() if "TRANSLATED_TEXT:" in raw else raw.strip()
-                fh.write(json.dumps({"block_uid": uid, "condition": cond, "class_name": blocks[uid].get("class_name"),
-                                     "guide_class": prompt["guide_class"], "source_text": text_of(uid),
-                                     "model": args.model, "temperature": args.temperature,
-                                     "prompt": prompt["text"], "used_image": bool(prompt["image"]),
-                                     "raw": raw, "translation": out, "time": time.time()}, ensure_ascii=False) + "\n")
-                fh.flush()
-    print(f"{len(items)} items x {len(args.conditions)} conditions -> {log}")
+    if log.exists() and not args.dry_run:
+        for line in open(log, encoding="utf-8"):
+            c = json.loads(line)
+            if c.get("translation"):
+                done.add((c["block_uid"], c["condition"]))
+    jobs = [(uid, cond) for uid in items for cond in args.conditions if (uid, cond) not in done]
+
+    def run(job):
+        uid, cond = job
+        prompt = build_prompt(cond, uid, order, blocks, text_of, args.src, args.tgt)
+        raw, error = "", None
+        if not args.dry_run:
+            try:
+                raw = (call_openrouter(args.model, prompt, args.temperature, args.project_root) if args.provider == "openrouter"
+                       else call_claude(client, args.model, prompt, args.temperature, args.project_root))
+            except Exception as e:  # logged and retried on the next run
+                error = str(e)[:300]
+        out = raw.split("TRANSLATED_TEXT:", 1)[1].strip() if "TRANSLATED_TEXT:" in raw else raw.strip()
+        return {"block_uid": uid, "condition": cond, "class_name": blocks[uid].get("class_name"),
+                "guide_class": prompt["guide_class"], "source_text": text_of(uid),
+                "model": args.model, "provider": args.provider, "temperature": args.temperature,
+                "prompt": prompt["text"], "used_image": bool(prompt["image"]),
+                "raw": raw, "translation": out, "error": error, "time": time.time()}
+
+    from concurrent.futures import ThreadPoolExecutor
+    failed = 0
+    with open(log, "w" if args.dry_run else "a", encoding="utf-8") as fh, ThreadPoolExecutor(max(1, args.workers)) as pool:
+        for rec in pool.map(run, jobs):
+            failed += bool(rec["error"])
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            fh.flush()
+    print(f"{len(items)} items x {len(args.conditions)} conditions: {len(jobs)} calls this time"
+          f"{f', {failed} failed (run again to retry)' if failed else ''} -> {log}")
 
 
 if __name__ == "__main__":
