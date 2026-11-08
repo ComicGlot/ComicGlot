@@ -114,19 +114,39 @@ def marker_table(blocks: List[dict], min_blocks: int) -> Dict[str, Dict[str, flo
     return out
 
 
+def markers_from_calls(paths: List[Path], min_blocks: int) -> Dict[str, Dict[str, Dict[str, float]]]:
+    """The same markers for translations logged by eval/translation_study/run_conditions.py:
+    {"<model> | <condition>": {class: {...}}}. The Korean is the source text that was translated."""
+    groups: Dict[str, List[dict]] = collections.defaultdict(list)
+    for p in paths:
+        for line in open(p, encoding="utf-8"):
+            c = json.loads(line)
+            if c.get("translation"):
+                groups[f'{c.get("model")} | {c.get("condition")}'].append(
+                    {"class_name": c.get("class_name", ""), "corrected_text": c.get("source_text", ""), "translated_text": c["translation"]})
+    return {k: marker_table(v, min_blocks) for k, v in sorted(groups.items())}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--runs", nargs="+", type=Path, required=True)
+    ap.add_argument("--runs", nargs="+", type=Path, default=[])
+    ap.add_argument("--calls", nargs="+", type=Path, default=[], help="calls.jsonl files of run_conditions.py: markers per model and condition")
     ap.add_argument("--min-blocks", type=int, default=20)
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()
-    blocks = load_blocks(args.runs)
-    result = {
-        "runs": [str(p) for p in args.runs],
-        "blocks": len(blocks),
-        "arbiter": {rule: arbiter_table(blocks, rule) for rule in ("space", "pipeline")},
-        "markers": marker_table(blocks, args.min_blocks),
-    }
+    if not args.runs and not args.calls:
+        ap.error("give --runs and/or --calls")
+    result = {}
+    if args.runs:
+        blocks = load_blocks(args.runs)
+        result.update({
+            "runs": [str(p) for p in args.runs],
+            "blocks": len(blocks),
+            "arbiter": {rule: arbiter_table(blocks, rule) for rule in ("space", "pipeline")},
+            "markers": marker_table(blocks, args.min_blocks),
+        })
+    if args.calls:
+        result["markers_by_model"] = markers_from_calls(args.calls, args.min_blocks)
     text = json.dumps(result, ensure_ascii=False, indent=1)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)

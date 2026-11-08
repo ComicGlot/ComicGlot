@@ -26,3 +26,17 @@ def test_kinds_and_markers():
             block("", "", "크아아앙!!", "think_bubble", "GRAAAH!!!")]
     m = marker_table(rows, min_blocks=1)["think_bubble"]
     assert m["en_ellipsis"] == 0.5 and m["en_caps"] == 0.5 and m["ko_exclaim"] == 0.5
+
+
+def test_markers_from_logged_translations(tmp_path):
+    import json
+    from research.run_stats import markers_from_calls
+    log = tmp_path / "calls.jsonl"
+    rows = [{"model": "m", "condition": "true_class", "class_name": "think_bubble", "source_text": "뭐지?", "translation": "What...?"},
+            {"model": "m", "condition": "true_class", "class_name": "think_bubble", "source_text": "그래", "translation": "OK"},
+            {"model": "m", "condition": "no_class", "class_name": "think_bubble", "source_text": "뭐지?", "translation": "What?"},
+            {"model": "m", "condition": "no_class", "class_name": "think_bubble", "source_text": "그래", "translation": ""}]
+    log.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
+    t = markers_from_calls([log], min_blocks=1)
+    assert t["m | true_class"]["think_bubble"]["en_ellipsis"] == 0.5
+    assert t["m | no_class"]["think_bubble"]["blocks"] == 1          # empty answers are not counted
