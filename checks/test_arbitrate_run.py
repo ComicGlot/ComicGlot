@@ -31,3 +31,9 @@ def test_step4_on_saved_blocks():
     assert [b["corrected_text"] for b in blocks] == ["안녕!", "쾅", "ARB(있다|잌다)"]
     assert e.inputs == [["있다", "잌다"]]
     assert e.contexts == ["Text block type: think_bubble. Previous lines on the page: 안녕! / 쾅"]
+
+
+def test_arbiter_answer_after_the_last_marker():
+    from comicglot.translation.ocr_correction import corrected_from
+    assert corrected_from("CORRECTED_TEXT: 있다") == "있다"
+    assert corrected_from("CORRECTED_TEXT: influ\n\nWait, correcting this properly:\n\nCORRECTED_TEXT: 인듯") == "인듯"

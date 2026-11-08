@@ -22,6 +22,13 @@ from comicglot.utils.llm_utils import LLMProcessor
 
 logger = logging.getLogger(__name__)
 
+
+def corrected_from(response: str) -> str:
+    """The text after the last CORRECTED_TEXT: marker. A model that restarts its answer
+    ("... Wait, correcting this properly: CORRECTED_TEXT: ...") gives its final reading last;
+    with one marker this is the same as before."""
+    return response.rsplit("CORRECTED_TEXT:", 1)[1].strip()
+
 class OCRCorrector:
     """
     OCR Correction class that uses dual OCR results and LLM analysis
@@ -117,7 +124,7 @@ class OCRCorrector:
             print(response)
 
             if "CORRECTED_TEXT:" in response:
-                corrected_text = response.split("CORRECTED_TEXT:", 1)[1].strip()
+                corrected_text = corrected_from(response)
                 logger.info("Successfully corrected OCR text")
                 return corrected_text
             else:
@@ -206,7 +213,7 @@ class OCRCorrector:
             processed_texts = []
             for response in all_corrected_texts:
                 if "CORRECTED_TEXT:" in response:
-                    text = response.split("CORRECTED_TEXT:", 1)[1].strip()
+                    text = corrected_from(response)
                     processed_texts.append(text)
                 else:
                     logger.warning(f"Correction response missing 'CORRECTED_TEXT:' marker: {response[:100]}...")

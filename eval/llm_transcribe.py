@@ -50,9 +50,9 @@ def norm(s: str) -> str:
     return "".join(unicodedata.normalize("NFC", s or "").split())
 
 
-def call(model: str, png_b64: str, retries: int = 4) -> str:
+def call(model: str, png_b64: str, retries: int = 4) -> dict:
     import requests
-    body = {"model": model, "temperature": 0, "max_tokens": 400, "messages": [{"role": "user", "content": [
+    body = {"model": model, "temperature": 0, "max_tokens": 2000, "messages": [{"role": "user", "content": [
         {"type": "text", "text": PROMPT},
         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{png_b64}"}}]}]}
     headers = {"Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}", "X-Title": "ComicGlot"}
@@ -61,7 +61,11 @@ def call(model: str, png_b64: str, retries: int = 4) -> str:
         try:
             r = requests.post("https://openrouter.ai/api/v1/chat/completions", json=body, headers=headers, timeout=120)
             if r.status_code == 200 and not r.json().get("error"):
-                return ((r.json().get("choices") or [{}])[0].get("message", {}).get("content") or "").strip()
+                j = r.json()
+                ch = (j.get("choices") or [{}])[0]
+                # Reasoning models spend tokens before answering; the stop reason shows a cut-off answer.
+                return {"answer": (ch.get("message", {}).get("content") or "").strip(),
+                        "finish_reason": ch.get("finish_reason"), "usage": j.get("usage")}
             last = f"HTTP {r.status_code}: {r.text[:200]}"
             if r.status_code not in (408, 429, 500, 502, 503, 504):
                 break
@@ -106,7 +110,7 @@ def read(a) -> None:
         if log.exists():
             for line in open(log, encoding="utf-8"):
                 c = json.loads(line)
-                if c.get("answer") is not None and not c.get("error"):
+                if c.get("answer") and not c.get("error"):  # an empty answer is asked again
                     done[c["block_uid"]] = c["answer"]
         todo = [u for u in want if u not in done]
         if a.dry_run:
@@ -115,7 +119,7 @@ def read(a) -> None:
 
         def one(u):
             try:
-                return {"block_uid": u, "model": model, "prompt": PROMPT, "answer": call(model, crops[u]), "error": None, "time": time.time()}
+                return {"block_uid": u, "model": model, "prompt": PROMPT, **call(model, crops[u]), "error": None, "time": time.time()}
             except Exception as e:  # logged; the next run retries it
                 return {"block_uid": u, "model": model, "prompt": PROMPT, "answer": None, "error": str(e)[:300], "time": time.time()}
 
@@ -124,7 +128,7 @@ def read(a) -> None:
             for rec in pool.map(one, todo):
                 fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 fh.flush()
-                if rec["error"]:
+                if rec["error"] or not rec["answer"]:
                     failed += 1
                 else:
                     done[rec["block_uid"]] = rec["answer"]
