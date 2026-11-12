@@ -170,7 +170,7 @@ def main() -> None:
 
     rows = [r for r in read_rows(a.csv) if r["rater"] not in set(a.exclude_raters)]
     js = judgements(rows)
-    people = [j for j in js if j["kind"] != "model"]
+    people = [j for j in js if j["kind"] == "person"]  # model judges are reported apart; testers never count
     result = {
         "inputs": [str(p) for p in a.csv],
         "excluded_raters": a.exclude_raters,
