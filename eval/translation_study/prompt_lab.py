@@ -408,6 +408,25 @@ def summarise(path: Path) -> dict:
     return out
 
 
+def export(a) -> None:
+    """A variant's test translations as calls.jsonl files of run_conditions.py (guided -> true_class, plain ->
+    no_class), one folder per model, for the rating app's export (tools/export_chapters.py --calls)."""
+    src = test_sources()
+    for f in sorted((OUT / "tr" / a.variant).glob("*.jsonl")):
+        rows = [r for r in map(json.loads, open(f, encoding="utf-8")) if r.get("translation")]
+        if not rows:
+            continue
+        model = rows[0]["model"]
+        out = S / f"translations_{a.variant}" / model.replace("/", "__") / "calls.jsonl"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "w", encoding="utf-8") as fh:
+            for r in rows:
+                fh.write(json.dumps({"block_uid": r["block_uid"], "condition": {"guided": "true_class", "plain": "no_class"}[r["mode"]],
+                                     "model": model, "prompt_variant": a.variant, "source_text": src.get(r["block_uid"], ""),
+                                     "translation": r["translation"], "prompt": r["prompt"], "raw": r["raw"]}, ensure_ascii=False) + "\n")
+        print(f"{model}: {len(rows)} -> {out}")
+
+
 def report(a) -> None:
     for f in sorted((OUT / "judge").glob("*/*.jsonl")):
         summarise(f)
@@ -441,9 +460,11 @@ def main() -> None:
     j2.add_argument("--workers", type=int, default=10)
     j2.add_argument("--limit", type=int, default=0)
     j2.add_argument("--swap", action="store_true", help="the same pairs with A and B the other way round")
+    e = sub.add_parser("export", help="test translations as calls.jsonl for the rating app (LAB_SET=test)")
+    e.add_argument("--variant", required=True)
     sub.add_parser("report")
     a = ap.parse_args()
-    {"devset": devset, "translate": translate, "judge": judge, "judge2": judge_lettered, "report": report}[a.cmd](a)
+    {"devset": devset, "translate": translate, "judge": judge, "judge2": judge_lettered, "export": export, "report": report}[a.cmd](a)
 
 
 if __name__ == "__main__":
