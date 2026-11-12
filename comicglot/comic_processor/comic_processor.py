@@ -27,6 +27,11 @@ from comicglot.utils.file_utils import load_image, save_image, get_next_run_fold
 from comicglot.utils.seam_segmentor import segment_by_seam_carving, segment_file_name
 
 
+
+def StyleTranslator_variant_path(name):
+    from comicglot.translation.style_processor import StyleTranslator
+    return StyleTranslator.variant_path(name)
+
 class ComicProcessor:
     """
     Main processing pipeline for ComicGlot.
@@ -52,6 +57,7 @@ class ComicProcessor:
         arbitrate_punctuation: bool = False,
         llm_provider: Optional[str] = None,
         llm_model: Optional[str] = None,
+        prompt_variant: Optional[str] = None,
     ):
         """
         Initialize the comic processor.
@@ -100,6 +106,9 @@ class ComicProcessor:
         # None keeps the published behaviour: Anthropic, with the task's default model.
         self.llm_provider = llm_provider
         self.llm_model = llm_model
+        # Translation prompt: None keeps the published prompt and style guides; a name such as "v5" uses
+        # data/prompts/lab/<name>.json (the prompt lab). Recorded in the result's config and provenance.
+        self.prompt_variant = prompt_variant
         self.detection_model_path = detection_model_path
         self.recognition_model_path = recognition_model_path
 
@@ -253,7 +262,8 @@ class ComicProcessor:
         
         if translator_type.lower() == "claude":
             from comicglot.translation.style_processor import StyleTranslator
-            return StyleTranslator(model_name=self.llm_model or "translation", provider=self.llm_provider)
+            return StyleTranslator(model_name=self.llm_model or "translation", provider=self.llm_provider,
+                                   prompt_variant=getattr(self, "prompt_variant", None))
         else:
             self.logger.warning(f"Unknown translator type: {translator_type}")
             return None
@@ -398,6 +408,7 @@ class ComicProcessor:
             "recognition_model_path": self.recognition_model_path or os.getenv("TROCR_MODEL_PATH"),
             "llm": llm,
             "style_guides_sha256_16": sha(os.path.join("data", "prompts", "style_guides.json")),
+            "prompt_variant_sha256_16": sha(StyleTranslator_variant_path(self.prompt_variant)) if getattr(self, "prompt_variant", None) else None,
             "correction_prompt_sha256_16": sha(os.path.join("data", "prompts", "correction_prompt.txt")),
         }
 
@@ -1170,6 +1181,7 @@ class ComicProcessor:
                 "arbitrate_punctuation": self.arbitrate_punctuation,
                 "llm_provider": self.llm_provider or "anthropic",
                 "llm_model": self.llm_model,
+                "prompt_variant": getattr(self, "prompt_variant", None),
             },
             "provenance": self._provenance()
         }

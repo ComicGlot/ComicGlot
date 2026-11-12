@@ -71,7 +71,8 @@ class StyleTranslator:
         # system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         provider: Optional[str] = None,
-        style_guides_path: str = "style_guides.json"
+        style_guides_path: str = "style_guides.json",
+        prompt_variant: Optional[str] = None,
     ):
         """
         Initialize the style translator.
@@ -100,6 +101,10 @@ class StyleTranslator:
         # )
 
         self.style_guides = self._load_style_guides(style_guides_path)
+        # A prompt variant of the prompt lab (data/prompts/lab/<name>.json): its own template and guides. None keeps
+        # the published prompt and style_guides.json.
+        self.prompt_variant = prompt_variant
+        self.variant = self._load_variant(prompt_variant) if prompt_variant else None
         self.temperature = temperature
         logger.info(f"Style Translator initialized with {len(self.style_guides)} style guides")
 
@@ -116,6 +121,45 @@ class StyleTranslator:
             "starting with 'TRANSLATED_TEXT:' followed by the translation."
         )
     
+    @staticmethod
+    def variant_path(name: str) -> str:
+        if os.path.exists(name):
+            return name
+        here = os.path.dirname(os.path.abspath(__file__))
+        for p in (os.path.join("data", "prompts", "lab", f"{name}.json"),
+                  os.path.join(here, "..", "..", "data", "prompts", "lab", f"{name}.json")):
+            if os.path.exists(p):
+                return p
+        raise FileNotFoundError(f"prompt variant {name!r} not found in data/prompts/lab")
+
+    def _load_variant(self, name: str) -> Dict:
+        with open(self.variant_path(name), encoding="utf-8") as f:
+            v = json.load(f)
+        logger.info(f"Prompt variant {name}: {len(v.get('guides', {}))} guides")
+        return v
+
+    def _build_prompt(self, text: str, source_lang: str, target_lang: str, bubble_type: str, context) -> str:
+        """The published prompt, or the prompt variant's. With a variant, bubble_type "default" (the class withheld)
+        gives the variant's plain prompt: the same template without the type and its guide."""
+        if not self.variant:
+            return self.prompt_template.format(
+                source_lang=source_lang, target_lang=target_lang, text=text,
+                context_section=self._format_context_section(context),
+                style_guide=self._guide_for(bubble_type), bubble_type=bubble_type)
+        v = self.variant
+        key = self.CLASS_ALIASES.get(bubble_type, bubble_type)
+        guided = key in v["types"]
+        lines = []
+        for group in context or []:
+            for b in group.get("bubbles", []):
+                if b.get("text"):
+                    tag = f" ({b.get('bubble_type')})" if guided and v.get("context_types", True) else ""
+                    lines.append(f"- Prev text {len(lines) + 1}{tag}: {b['text']}")
+        ctx = "[CONTEXT]: Surrounding texts:\n" + "\n".join(lines) + "\n\n" if lines else ""
+        typ = v["type_line"].format(type=v["types"][key]) if guided and v.get("type_line") else ""
+        guide = v["guide_line"].format(guide=v["guides"][key]) if guided and v["guides"].get(key) else v.get("plain_guide_line", "") if not guided else ""
+        return v["template"].format(text=text, context=ctx, type=typ, guide=guide).replace("\n\n\n", "\n\n")
+
     def _load_style_guides(self, path: str) -> Dict[str, str]:
         """
         Load style guides from the style_guides.json file.
@@ -343,17 +387,7 @@ class StyleTranslator:
         if not text.strip():
             return ""
 
-        style_guide = self._guide_for(bubble_type)
-        context_section = self._format_context_section(context)
-
-        prompt = self.prompt_template.format(
-            source_lang=source_lang,
-            target_lang=target_lang,
-            text=text,
-            context_section=context_section,
-            style_guide=style_guide,
-            bubble_type=bubble_type
-        )
+        prompt = self._build_prompt(text, source_lang, target_lang, bubble_type, context)
         
         try:
             logger.debug(f"Sending translation prompt to LLM for bubble type {bubble_type}")
@@ -453,17 +487,7 @@ class StyleTranslator:
                 logger.debug(f"Skipping empty text at index {i}")
                 continue
 
-            style_guide = self._guide_for(bubble_type)
-            context_section = self._format_context_section(contexts[i])
-
-            prompt = self.prompt_template.format(
-                source_lang=source_lang,
-                target_lang=target_lang,
-                text=text,
-                context_section=context_section,
-                style_guide=style_guide,
-                bubble_type=bubble_type
-            )
+            prompt = self._build_prompt(text, source_lang, target_lang, bubble_type, contexts[i])
             
             prompts.append(prompt)
             valid_indices.append(i)

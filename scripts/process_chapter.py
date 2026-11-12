@@ -268,12 +268,15 @@ async def run_with_args():
     parser.add_argument("--llm-model", default=None,
                         help="Model for the arbiter and the translator: an OpenRouter slug such as "
                              "anthropic/claude-sonnet-4.5, or a Claude name (default: the published models)")
+    parser.add_argument("--prompt-variant", default=None,
+                        help="Translation prompt from data/prompts/lab/<name>.json, e.g. v5 (default: the published prompt)")
 
     args = parser.parse_args()
     PIPELINE_OPTIONS.update(class_condition=args.class_condition, context_window=args.context_window,
                             correction_context=not args.no_correction_context,
                             arbitrate_punctuation=args.arbitrate_punctuation,
-                            llm_provider=args.llm_provider, llm_model=args.llm_model)
+                            llm_provider=args.llm_provider, llm_model=args.llm_model,
+                            prompt_variant=args.prompt_variant)
     
     if args.save_all:
         args.save_segments = True
@@ -366,6 +369,7 @@ async def run_direct():
         arbitrate_punctuation=os.getenv("ARBITRATE_PUNCTUATION", "False").lower() in ("true", "1", "yes"),
         llm_provider=os.getenv("LLM_PROVIDER") or None,
         llm_model=os.getenv("LLM_MODEL") or None,
+        prompt_variant=os.getenv("PROMPT_VARIANT") or None,
     )
     
     # Save options
