@@ -1,0 +1,40 @@
+{
+ "_about": "v3: the note says how a line is delivered and guides word choice and register; it never asks for punctuation (the judge penalises any mark the Korean lacks). Wiggle covers eerie voices too; system and template translate terms and romanise only personal names.",
+ "template": "Translate this line from a Korean webtoon into English.\n\n{context}Korean: {text}\n{type}{guide}\nKeep the meaning, every nuance and the intensity of the Korean. Keep its punctuation exactly (its !, ?, ... and ~ carry over) and use normal English capitals. Romanise personal names; translate the meaning of skill, item, title and place names. Let the note guide word choice and register.\n\nGive only the translation, after 'TRANSLATED_TEXT:'.",
+ "type_line": "Drawn as: {type}\n",
+ "guide_line": "Note: {guide}\n",
+ "plain_guide_line": "",
+ "context_lines": 3,
+ "context_types": false,
+ "types": {
+  "speech_bubble": "an ordinary speech balloon",
+  "think_bubble": "a thought balloon (a tail of small circles)",
+  "cloud_bubble": "a cloud-shaped balloon",
+  "wiggle_bubble": "a wavy balloon",
+  "scream_bubble": "a jagged burst balloon",
+  "spiked_bubble": "a balloon ringed by thin spikes",
+  "hexagon_bubble": "a straight-edged polygon balloon",
+  "square_bubble": "a rectangular narration box",
+  "system_bubble": "a game-style system window",
+  "standalone_text": "lettering on the art, without a balloon",
+  "background_text": "text that is part of the scene",
+  "title_panel": "title lettering",
+  "sfx_sound": "a drawn sound effect"
+ },
+ "guides": {
+  "speech_bubble": "ordinary spoken dialogue. Use idiomatic spoken English at the same politeness or roughness as the Korean.",
+  "think_bubble": "an unspoken thought, the character talking to themselves. Phrase it as inner voice, not as speech to someone else.",
+  "cloud_bubble": "light, playful or affectionate speech. Let the wording sound warm and lively.",
+  "wiggle_bubble": "an unsteady or unnatural voice: shaken by fear, weakness or embarrassment, or eerie and menacing. Choose words that carry that voice.",
+  "scream_bubble": "the line is shouted. Use short, forceful words; keep the Korean's exclamation marks, and stretch a drawn-out cry or groan as the Korean does (Nooo, Ughhh).",
+  "spiked_bubble": "a sudden inner reaction (shock, anger, realisation) or a sharp, tense remark. Keep it terse and keep every nuance of the Korean.",
+  "hexagon_bubble": "a voice through a device, magic or a machine (phone, AI, spell, broadcast). Keep the speaker's own wording; clipped and impersonal only if a machine speaks.",
+  "square_bubble": "narration or a voice-over. Use clear written English in a consistent tense, without chatty fillers.",
+  "system_bubble": "a game interface message. Write it as a game notification would read (You have acquired [Title]!), with normal capitals; keep brackets and numbers exactly.",
+  "standalone_text": "lettering drawn straight onto the art: credits, a notice, an off-panel voice or a short exclamation. Keep it as short as the Korean.",
+  "background_text": "a sign, screen, label, chat message or book page in the scene. Translate it as that object would read in English, as short as the Korean.",
+  "title_panel": "a series or chapter title, or a credit. Translate a title's meaning in title case; names stay names, romanised.",
+  "sfx_sound": "a sound effect or drawn action word. Give one English comics sound or action word (BANG, THUD, GRAB, SHFF) in capitals, about as long as the Korean.",
+  "default": ""
+ }
+}

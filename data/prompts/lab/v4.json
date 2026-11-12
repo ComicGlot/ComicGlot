@@ -1,0 +1,40 @@
+{
+ "_about": "v4: guides written as a translator's brief (what the type usually holds, how to write it in natural English, what to avoid), about three times longer than v3, after the authors' review. The template asks for natural, localised English over word-for-word fidelity; the judge's lesson from v1 to v3 is kept: no marks the line does not call for.",
+ "template": "You are localising a Korean webtoon into English for English-speaking readers.\n\n{context}Korean: {text}\n{type}{guide}\nWrite natural, idiomatic English that an English webtoon reader would expect, keeping the meaning, the intent and the intensity of the line; do not translate word for word. Use normal capitals. Carry over the line's !, ? and ... where English uses them the same way, and add no stutters, ellipses, capitals or exclamation marks that the line does not call for. Romanise personal names; translate the meaning of skill, item, title and place names.\n\nGive only the translation, after 'TRANSLATED_TEXT:'.",
+ "type_line": "Drawn as: {type}\n",
+ "guide_line": "How to translate it: {guide}\n",
+ "plain_guide_line": "",
+ "context_lines": 3,
+ "context_types": false,
+ "types": {
+  "speech_bubble": "an ordinary speech balloon",
+  "think_bubble": "a thought balloon (a tail of small circles)",
+  "cloud_bubble": "a cloud-shaped balloon",
+  "wiggle_bubble": "a wavy balloon",
+  "scream_bubble": "a jagged burst balloon",
+  "spiked_bubble": "a balloon ringed by thin spikes",
+  "hexagon_bubble": "a straight-edged polygon balloon",
+  "square_bubble": "a rectangular narration box",
+  "system_bubble": "a game-style system window",
+  "standalone_text": "lettering on the art, without a balloon",
+  "background_text": "text that is part of the scene",
+  "title_panel": "title lettering",
+  "sfx_sound": "a drawn sound effect"
+ },
+ "guides": {
+  "speech_bubble": "Ordinary dialogue said aloud to someone in the scene. Write it the way an English speaker of that age and standing would say it in the same situation: contractions, everyday idioms and a register that matches how polite, casual or rough the speaker is. Replace Korean honorific endings with English politeness (sir, please, a softer phrasing) or drop them. Avoid stiff, textbook sentences and filler that the line does not need.",
+  "think_bubble": "An unspoken thought: the character talking to themselves, reacting, planning or worrying. Write it as inner voice in the first person, as people think in English: short, informal, sometimes fragmentary, with questions to oneself. Do not address it to the other characters or turn it into narration. An ellipsis is natural where the thought trails off, but do not add one to every line.",
+  "cloud_bubble": "Light, playful, affectionate or teasing speech, often cute, flirty or happily excited. Make it sound warm and lively in English: friendly word choice, a playful turn of phrase, a soft exclamation where the mood is bright. A tilde (~) only where the line is sing-song in a way English would show. Avoid flat, formal phrasing that loses the playfulness, and do not make it childish.",
+  "wiggle_bubble": "An unsteady or unnatural voice. Often the speaker is shaken: scared, weak, hurt, embarrassed or unsure. In dark scenes the same outline marks an eerie, ghostly or menacing voice. Choose words that carry that voice: hesitant, trailing phrasing for a shaken speaker; slow, cold, ominous phrasing for an eerie one. A single stutter or broken-off sentence only where the speaker really falters; never stutter every word.",
+  "scream_bubble": "The line is shouted, cried out or roared: anger, panic, pain, a battle cry or a call across distance. Make it punchy in English: short words, a strong verb or interjection, one or two exclamation marks. Stretch a drawn-out cry or groan the way English comics write it (Nooo!, Ughhh!). Do not soften it into a calm sentence, and do not write it all in capitals: the burst balloon already shows the volume.",
+  "spiked_bubble": "A sudden jolt: a shocked inner reaction, a flash of anger, a realisation, or a sharp, tense remark. Keep it terse and immediate in English, the way a gut reaction sounds (What--?!, Wait, that's...), while keeping every nuance of the line. Avoid long explanatory sentences and do not inflate it into a full shout with extra exclamation marks or capitals.",
+  "hexagon_bubble": "A voice that comes through something: a phone, radio, broadcast, intercom, AI, magic message or telepathy. Keep the speaker's own personality and register as for ordinary dialogue; a machine or announcement speaks in clipped, impersonal, formal English. Do not add sound-effect words or brackets around the line.",
+  "square_bubble": "A narration or voice-over box: the narrator, a character's voice-over, or a scene or time caption. Write clear, written English as in a novel's narration, in one consistent tense and voice, slightly more formal than dialogue. Short captions such as places, dates or time skips read like English captions (Three days later. / The Imperial Palace). Avoid chatty fillers and spoken interjections.",
+  "system_bubble": "A game-style system window as in game-fantasy webtoons: notifications, quests, skills, stats, level-ups and warnings. Use the conventions of English game and LitRPG text: clear, concise, consistent terms (Level Up!, Quest Complete, You have acquired [Title].), standard game vocabulary (HP, MP, EXP, Strength) and title-style names for skills, items and quests inside brackets. Keep brackets, numbers and symbols exactly. Avoid literal Korean word order and romanising terms English readers would not understand.",
+  "standalone_text": "Lettering placed straight on the art without a balloon: short muttered words, an off-panel voice, an aside, a small exclamation, a label, or the chapter credits and notices. Translate it as an English letterer would set such loose text: as short as the original, natural and to the point. Credits use the usual English form (Art by / Story by / Original Story). Do not expand it into a full sentence or add explanations.",
+  "background_text": "Text inside the scene itself: shop signs, posters, slogans, screens, phone messages, chat windows, books, labels and graffiti. Translate it as that object would read in English: short, signage-like or message-like, in the style of the medium (a sign is a noun phrase, a chat message is casual). Keep it as brief as the original and do not explain it or turn it into dialogue.",
+  "title_panel": "A series title, chapter title or episode heading, or the credits beside them. Give an English title as a publisher would: concise, in title case, catchy where the original is, keeping wordplay if you can. Translate a title's meaning rather than romanising it; personal names stay names, romanised. Chapter numbers follow English form (Chapter 31).",
+  "sfx_sound": "A drawn sound effect or action word: impacts, footsteps, swishes, heartbeats, crowd noise, or actions written as sound (grab, glance, gulp). Use the English comics word for that sound or action (BANG, THUD, WHOOSH, BA-DUMP, GRAB, GLANCE, GULP) in capitals, about as long as the original. Choose by what is happening in the scene, not by how the Korean syllables sound; never transliterate the Korean and never write a full sentence.",
+  "default": ""
+ }
+}

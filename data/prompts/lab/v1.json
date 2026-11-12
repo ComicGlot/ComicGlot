@@ -1,0 +1,40 @@
+{
+ "_about": "v1: the drawing already shows how a line is delivered, and the English is lettered into the same balloon, so a guide says what the type means and what the English needs for it; the Korean sets the intensity. Markers only where the Korean or the type calls for them.",
+ "template": "Translate this line from a Korean webtoon into English.\n\n{context}Korean: {text}\n{type}{guide}\nKeep the meaning and the intensity of the Korean. The English is lettered into the same balloon or space, so the drawing still shows how the line is delivered: do not add exclamation marks, capitals, ellipses, tildes or stutters that the Korean does not have unless the note asks for them. Write natural English, as a comics letterer would set it.\n\nGive only the translation, after 'TRANSLATED_TEXT:'.",
+ "type_line": "Drawn as: {type}\n",
+ "guide_line": "Note: {guide}\n",
+ "plain_guide_line": "",
+ "context_lines": 3,
+ "context_types": false,
+ "types": {
+  "speech_bubble": "an ordinary speech balloon",
+  "think_bubble": "a thought balloon (a tail of small circles)",
+  "cloud_bubble": "a cloud-shaped balloon",
+  "wiggle_bubble": "a wavy, trembling balloon",
+  "scream_bubble": "a jagged burst balloon",
+  "spiked_bubble": "a balloon ringed by thin spikes",
+  "hexagon_bubble": "a straight-edged polygon balloon",
+  "square_bubble": "a rectangular narration box",
+  "system_bubble": "a game-style system window",
+  "standalone_text": "lettering on the art, without a balloon",
+  "background_text": "text that is part of the scene",
+  "title_panel": "title lettering",
+  "sfx_sound": "a drawn sound effect"
+ },
+ "guides": {
+  "speech_bubble": "ordinary spoken dialogue. Use idiomatic spoken English at the same register as the Korean (polite, casual or rough).",
+  "think_bubble": "an unspoken thought. Write it as inner voice: informal, not addressed to anyone. Trail off with '...' only where the Korean trails off.",
+  "cloud_bubble": "light, playful or affectionate speech. Keep the wording soft and friendly; use '~' only where the Korean has one.",
+  "wiggle_bubble": "shaky speech: fear, weakness, embarrassment or hesitation. Let the wording sound unsure where the Korean hesitates; at most one stutter or '...', and only if the Korean has a break.",
+  "scream_bubble": "the line is shouted. Make it forceful and short; end with '!' (two at most). Do not write it in capitals: the lettering shows the shout.",
+  "spiked_bubble": "a sharp inner reaction or impulse, closer to a thought than to speech: shock, anger, sudden realisation. Keep it short and abrupt.",
+  "hexagon_bubble": "a voice through a device, magic or a machine (phone, AI, spell, broadcast). Keep the speaker's own wording; clipped and impersonal only if a machine speaks.",
+  "square_bubble": "narration or a voice-over. Use clear written English in a consistent tense, without chatty fillers.",
+  "system_bubble": "a game interface message. Use terse interface English: title case for names of skills, items, quests and stats; keep brackets, numbers and symbols exactly.",
+  "standalone_text": "lettering drawn straight onto the art, often an off-panel voice or a short exclamation. Keep it as short as the Korean.",
+  "background_text": "a sign, screen, label, book or message in the scene. Translate it as that object would read in English: short, no added punctuation.",
+  "title_panel": "a series or chapter title. Short, in title case; keep wordplay where possible.",
+  "sfx_sound": "a sound effect or drawn action word. Give one English comics sound or action word (BANG, THUD, GRAB, SHFF) in capitals, about as long as the Korean; no punctuation.",
+  "default": ""
+ }
+}
