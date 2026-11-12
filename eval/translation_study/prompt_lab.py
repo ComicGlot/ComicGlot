@@ -143,9 +143,28 @@ def build(v: dict, mode: str, uid: str, order, blocks) -> str:
     return v["template"].format(text=text_of(uid), context=ctx, type=typ, guide=guide).replace("\n\n\n", "\n\n")
 
 
+def build_refine(v: dict, mode: str, uid: str, order, blocks, draft: str) -> str:
+    """Second step of a two-step variant: the draft (the plain translation of v["refine_from"]) adapted to the type
+    (mode guided), or, as a control, polished with no type (mode polish)."""
+    b = blocks[uid]
+    cls = GUIDE_KEY.get(b["class_name"], b["class_name"])
+    text_of = lambda u: blocks[u].get("corrected_text") or blocks[u].get("text")
+    guided = mode == "guided"
+    ctx = context_lines(order, blocks, uid, text_of, n=v.get("context_lines", 3), with_class=guided and v.get("context_types", True))
+    if guided:
+        typ = v["type_line"].format(type=v["types"][cls]) if v["types"].get(cls) else ""
+        guide = v["guide_line"].format(guide=v["guides"][cls]) if v["guides"].get(cls) else ""
+        tpl = v["refine_template"]
+    else:
+        typ, guide, tpl = "", "", v["polish_template"]
+    return tpl.format(text=text_of(uid), context=ctx, draft=draft, type=typ, guide=guide).replace("\n\n\n", "\n\n")
+
+
 def translate(a) -> None:
     order, blocks = load()
     v = variant(a.variant)
+    # A variant may fix its temperature (part of the prompt design); --temperature overrides; else the pipeline's 0.7.
+    temp = a.temperature if a.temperature is not None else v.get("temperature", 0.7)
     for model in a.models:
         out = OUT / "tr" / a.variant / (model.replace("/", "__") + ".jsonl")
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -153,24 +172,44 @@ def translate(a) -> None:
         if out.exists():
             done = {(r["block_uid"], r["mode"]) for r in map(json.loads, open(out, encoding="utf-8")) if r.get("translation")}
         modes = ["guided", "plain"] if not v.get("guided_only") else ["guided"]
-        jobs = [(u, m) for u in load_dev() for m in modes if (u, m) not in done]
+        drafts = {}
+        if v.get("refine_from"):
+            # two steps: the plain version is the draft itself; guided adapts it to the type; polish is the control
+            drafts = versions(f'{v["refine_from"]}:plain', model)
+            modes = ["guided", "plain"] + (["polish"] if v.get("polish_template") else [])
+        jobs = [(u, m) for u in load_dev() for m in modes if (u, m) not in done and (not drafts or u in drafts)]
+        # Selective guides: types outside v["guided_types"] get the plain translation as their guided one (no call).
+        gt = set(v.get("guided_types") or [])
+        unguided = lambda u: bool(gt) and GUIDE_KEY.get(blocks[u]["class_name"], blocks[u]["class_name"]) not in gt
+        later = [(u, m) for u, m in jobs if m == "guided" and unguided(u)]
+        jobs = [j for j in jobs if j not in later]
 
         def run(job):
             u, m = job
-            p = build(v, m, u, order, blocks)
+            if drafts and m == "plain":
+                return {"block_uid": u, "mode": m, "variant": a.variant, "model": model, "prompt": "(draft of " + v["refine_from"] + ")",
+                        "raw": drafts[u], "translation": drafts[u], "error": None}
+            p = build_refine(v, m, u, order, blocks, drafts[u]) if drafts else build(v, m, u, order, blocks)
             raw, err = "", None
             try:
-                raw = call_openrouter(model, {"text": p, "image": None}, a.temperature, None, a.max_tokens)
+                raw = call_openrouter(model, {"text": p, "image": None}, temp, None, a.max_tokens)
             except Exception as e:
                 err = str(e)[:300]
             tr = raw.split("TRANSLATED_TEXT:", 1)[1].strip() if "TRANSLATED_TEXT:" in raw else raw.strip()
-            return {"block_uid": u, "mode": m, "variant": a.variant, "model": model, "prompt": p, "raw": raw,
+            return {"block_uid": u, "mode": m, "variant": a.variant, "model": model, "temperature": temp, "prompt": p, "raw": raw,
                     "translation": " ".join(tr.split()), "error": err, **getattr(call_openrouter, "last", {})}
 
         with open(out, "a", encoding="utf-8") as f, ThreadPoolExecutor(a.workers) as ex:
             for r in ex.map(run, jobs):
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        print(f"{a.variant} {model}: {len(jobs)} calls")
+        if later:
+            plain = versions(f"{a.variant}:plain", model)
+            with open(out, "a", encoding="utf-8") as f:
+                for u, _ in later:
+                    if u in plain:
+                        f.write(json.dumps({"block_uid": u, "mode": "guided", "variant": a.variant, "model": model, "prompt": "(type not guided: plain)",
+                                            "raw": plain[u], "translation": plain[u], "error": None, "unguided": True}, ensure_ascii=False) + "\n")
+        print(f"{a.variant} {model}: {len(jobs)} calls, {len(later)} unguided types copied from plain")
 
 
 def versions(spec: str, model: str) -> dict:
@@ -441,7 +480,7 @@ def main() -> None:
     t = sub.add_parser("translate")
     t.add_argument("--variant", required=True)
     t.add_argument("--models", nargs="+", required=True)
-    t.add_argument("--temperature", type=float, default=0.7)
+    t.add_argument("--temperature", type=float, default=None)
     t.add_argument("--max-tokens", type=int, default=3000)
     t.add_argument("--workers", type=int, default=12)
     j = sub.add_parser("judge")

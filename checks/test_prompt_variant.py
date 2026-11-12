@@ -41,3 +41,9 @@ def test_pipeline_prompt_matches_the_lab():
     t = translator("v5")
     assert prompt_lab.build(v, "guided", "r/0/2", order, blocks) == t._build_prompt("말", "ko", "en", "sqare_bubble", CTX)
     assert prompt_lab.build(v, "plain", "r/0/2", order, blocks) == t._build_prompt("말", "ko", "en", "default", CTX)
+
+
+def test_selective_guides_use_the_plain_prompt_for_other_types():
+    t = translator("v9")
+    assert t._build_prompt("말", "ko", "en", "speech_bubble", CTX) == t._build_prompt("말", "ko", "en", "default", CTX)
+    assert t._build_prompt("쾅", "ko", "en", "sfx_sound", CTX) != t._build_prompt("쾅", "ko", "en", "default", CTX)

@@ -106,6 +106,8 @@ class StyleTranslator:
         self.prompt_variant = prompt_variant
         self.variant = self._load_variant(prompt_variant) if prompt_variant else None
         self.temperature = temperature
+        if self.variant and "temperature" in self.variant:  # a variant's temperature is part of its design
+            self.temperature = float(self.variant["temperature"])
         logger.info(f"Style Translator initialized with {len(self.style_guides)} style guides")
 
         self.prompt_template = (
@@ -149,6 +151,8 @@ class StyleTranslator:
         v = self.variant
         key = self.CLASS_ALIASES.get(bubble_type, bubble_type)
         guided = key in v["types"]
+        if v.get("guided_types") and key not in v["guided_types"]:
+            guided = False  # selective guides: this type is translated with the plain prompt
         lines = []
         for group in context or []:
             for b in group.get("bubbles", []):
